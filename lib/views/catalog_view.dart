@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/controllers/auth_controller.dart';
 import 'package:flutter_app/controllers/plant_controller.dart';
+import 'package:flutter_app/core/config/api_config.dart';
 import 'package:flutter_app/core/constants/app_colors.dart';
 import 'package:flutter_app/core/constants/app_routes.dart';
 import 'package:flutter_app/models/plant_model.dart';
@@ -16,6 +17,9 @@ class CatalogView extends StatefulWidget {
 }
 
 class _CatalogViewState extends State<CatalogView> {
+  final _searchController = TextEditingController();
+  String _selectedCategory = 'Tipo de planta';
+
   @override
   void initState() {
     super.initState();
@@ -32,23 +36,75 @@ class _CatalogViewState extends State<CatalogView> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final controller = context.watch<PlantController>();
+    final query = _searchController.text.trim().toLowerCase();
+    final plants = controller.plants.where((plant) {
+      final searchable =
+          '${plant.nombre} ${plant.ubicacion} '
+                  '${plant.categoria?.nombre ?? ''}'
+              .toLowerCase();
+      final categoryMatches =
+          _selectedCategory == 'Tipo de planta' ||
+          (plant.categoria?.nombre ?? '').toLowerCase() ==
+              _selectedCategory.toLowerCase();
+      return (query.isEmpty || searchable.contains(query)) && categoryMatches;
+    }).toList();
+    final categories = controller.plants
+        .map((plant) => plant.categoria?.nombre ?? '')
+        .where((category) => category.isNotEmpty)
+        .toSet()
+        .toList();
+
+    final content = <Widget>[];
+    if (controller.isLoading && controller.plants.isEmpty) {
+      content.add(
+        const Padding(
+          padding: EdgeInsets.only(top: 80),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    } else if (plants.isEmpty) {
+      content.add(
+        const Padding(
+          padding: EdgeInsets.only(top: 70),
+          child: Center(
+            child: Text('No hay plantas que coincidan con tu búsqueda.'),
+          ),
+        ),
+      );
+    } else {
+      content.addAll(
+        plants.map(
+          (plant) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: PlantCard(plant: plant),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        backgroundColor: AppColors.background,
+        foregroundColor: AppColors.primary,
         title: Text(
-          'Catalogo',
-          style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+          'PlantHaven',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w800),
         ),
         actions: [
           IconButton(
-            tooltip: 'Mis publicaciones',
             icon: const Icon(Icons.inventory_2_outlined),
             onPressed: () => context.push(AppRoutes.myPublications),
           ),
           IconButton(
-            tooltip: 'Mi perfil',
             icon: const Icon(Icons.person_outline),
             onPressed: () => context.push(AppRoutes.profile),
           ),
@@ -87,127 +143,383 @@ class _CatalogViewState extends State<CatalogView> {
       ),
       body: RefreshIndicator(
         onRefresh: () => context.read<PlantController>().loadCatalog(),
-        child: controller.isLoading && controller.plants.isEmpty
-            ? const Center(child: CircularProgressIndicator())
-            : controller.plants.isEmpty
-            ? ListView(
-                children: const [
-                  SizedBox(height: 180),
-                  Center(child: Text('No hay plantas disponibles todavía.')),
-                ],
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
-                itemCount: controller.plants.length,
-                itemBuilder: (context, index) =>
-                    _PlantCatalogCard(plant: controller.plants[index]),
-              ),
-      ),
-    );
-  }
-}
-
-class _PlantCatalogCard extends StatelessWidget {
-  final PlantModel plant;
-
-  const _PlantCatalogCard({required this.plant});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      color: AppColors.white,
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 110),
           children: [
-            _PlantImage(url: plant.fotografiaUrl),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    plant.nombre,
-                    style: GoogleFonts.inter(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${plant.tamano} · ${plant.nivelCuidado}',
-                    style: const TextStyle(color: AppColors.textSecondary),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${plant.necesidadLuz} · ${plant.necesidadAgua}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    plant.ubicacion,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textDisabled,
-                    ),
-                  ),
-                ],
+            Text(
+              'Encuentra tu próxima compañera verde',
+              style: GoogleFonts.inter(
+                fontSize: 29,
+                height: 1.1,
+                fontWeight: FontWeight.w800,
+                color: AppColors.primary,
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppColors.accent),
+            const SizedBox(height: 10),
+            const Text(
+              'Plantitas sanas listas para llenar tu hogar de calma y vida.',
+              style: TextStyle(color: AppColors.textSecondary, height: 1.4),
+            ),
+            const SizedBox(height: 22),
+            TextField(
+              controller: _searchController,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: 'Buscar plantas (ej. Monstera, Pothos...)',
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _FilterChip(
+                    icon: Icons.location_on_outlined,
+                    label: 'Sonsonate centro',
+                    onTap: () {},
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _FilterChip(
+                    icon: Icons.spa_outlined,
+                    label: _selectedCategory,
+                    onTap: () => _chooseCategory(categories),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Los resultados se actualizan automáticamente.',
+              style: TextStyle(fontSize: 12, color: AppColors.textDisabled),
+            ),
+            const SizedBox(height: 26),
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Text(
+                  'Plantas disponibles',
+                  style: GoogleFonts.inter(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '(${plants.length} disponibles)',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.swap_vert, size: 18, color: AppColors.accent),
+                    const Text(
+                      'Recientes',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            ...content,
           ],
         ),
       ),
     );
   }
+
+  Future<void> _chooseCategory(List<String> categories) async {
+    final value = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('Tipo de planta'),
+              trailing: const Icon(Icons.close),
+              onTap: () => Navigator.pop(context, 'Tipo de planta'),
+            ),
+            ListTile(
+              title: const Text('Todas'),
+              onTap: () => Navigator.pop(context, 'Tipo de planta'),
+            ),
+            ...categories.map(
+              (category) => ListTile(
+                title: Text(category),
+                onTap: () => Navigator.pop(context, category),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (value != null && mounted) setState(() => _selectedCategory = value);
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _FilterChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(24),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 17, color: AppColors.accent),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+          const Icon(Icons.keyboard_arrow_down, size: 17),
+        ],
+      ),
+    ),
+  );
+}
+
+class PlantCard extends StatelessWidget {
+  final PlantModel plant;
+  const PlantCard({super.key, required this.plant});
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: EdgeInsets.zero,
+    elevation: 0,
+    color: AppColors.white,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(22),
+      side: const BorderSide(color: AppColors.border),
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Stack(
+          children: [
+            SizedBox(
+              height: 190,
+              width: double.infinity,
+              child: PlantImage(url: plant.fotografiaUrl),
+            ),
+            Positioned(
+              top: 14,
+              left: 14,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'Disponible para adopción',
+                  style: TextStyle(
+                    color: AppColors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 12,
+              right: 12,
+              child: Material(
+                color: AppColors.white,
+                shape: const CircleBorder(),
+                child: IconButton(
+                  onPressed: () {},
+                  icon: const Icon(
+                    Icons.favorite_border,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 15, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      plant.nombre,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _tag('Gratis'),
+                ],
+              ),
+              const SizedBox(height: 5),
+              Text(
+                '${plant.categoria?.nombre ?? 'Planta'} · ${plant.estadoPlanta.isEmpty ? 'Arácea' : plant.estadoPlanta}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 13),
+              Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: [
+                  _tag(
+                    'Tamaño: ${plant.tamano.isEmpty ? 'Mediano' : plant.tamano}',
+                    pale: true,
+                  ),
+                  _tag(
+                    'Cuidado: ${plant.nivelCuidado.isEmpty ? 'Fácil' : plant.nivelCuidado}',
+                    pale: true,
+                  ),
+                  _tag(
+                    'Luz: ${plant.necesidadLuz.isEmpty ? 'Indirecta' : plant.necesidadLuz}',
+                    pale: true,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 13),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.location_on_outlined,
+                    size: 17,
+                    color: AppColors.accent,
+                  ),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(
+                      plant.ubicacion.isEmpty
+                          ? 'Sonsonate centro'
+                          : plant.ubicacion,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: FilledButton(
+                  onPressed: () => context.push(
+                    AppRoutes.plantDetail.replaceFirst(
+                      ':id',
+                      '${plant.idPlanta}',
+                    ),
+                    extra: plant,
+                  ),
+                  child: const Text('Ver detalles'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+  Widget _tag(String text, {bool pale = false}) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+    decoration: BoxDecoration(
+      color: pale
+          ? AppColors.fieldBackground
+          : AppColors.accent.withValues(alpha: .16),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: pale ? AppColors.textSecondary : AppColors.primary,
+      ),
+    ),
+  );
 }
 
 class PlantImage extends StatelessWidget {
   final String? url;
-
   const PlantImage({super.key, required this.url});
-
-  @override
-  Widget build(BuildContext context) => _PlantImage(url: url);
-}
-
-class _PlantImage extends StatelessWidget {
-  final String? url;
-
-  const _PlantImage({required this.url});
-
   @override
   Widget build(BuildContext context) {
+    final value = url?.trim() ?? '';
+    final imageUrl = value.startsWith('/')
+        ? '${ApiConfig.baseUrl}$value'
+        : value;
     return Container(
-      width: 86,
-      height: 86,
-      decoration: BoxDecoration(
-        color: AppColors.fieldBackground,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: url == null || url!.isEmpty
-          ? const Icon(
-              Icons.local_florist_outlined,
-              color: AppColors.accent,
-              size: 38,
-            )
+      color: AppColors.fieldBackground,
+      child: imageUrl.isEmpty
+          ? const _ImagePlaceholder()
           : Image.network(
-              url!,
+              imageUrl,
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => const Icon(
-                Icons.local_florist_outlined,
-                color: AppColors.accent,
-                size: 38,
-              ),
+              width: double.infinity,
+              errorBuilder: (_, _, _) => const _ImagePlaceholder(),
+              loadingBuilder: (context, child, progress) =>
+                  progress == null ? child : const _ImagePlaceholder(),
             ),
     );
   }
+}
+
+class _ImagePlaceholder extends StatelessWidget {
+  const _ImagePlaceholder();
+  @override
+  Widget build(BuildContext context) => const Center(
+    child: Icon(
+      Icons.local_florist_outlined,
+      color: AppColors.accent,
+      size: 54,
+    ),
+  );
 }

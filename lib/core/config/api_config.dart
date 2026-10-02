@@ -10,6 +10,6 @@ class ApiConfig {
   static const String forgotPasswordPath = '/api/auth/forgot-password';
   static const String resetPasswordPath = '/api/auth/reset-password';
   static const String profilePath = '/api/usuarios/me';
-  static const String plantsPath = '/api/plantas/';
+  static const String plantsPath = '/api/plantas';
   static const String myPlantsPath = '/api/plantas/mias';
 }

@@ -50,6 +50,42 @@ class ApiService {
         .timeout(ApiConfig.requestTimeout);
   }
 
+  Future<http.Response> PostMultipart(
+    String path, {
+    required Map<String, String> fields,
+    List<int>? bytes,
+    String? filename,
+  }) async {
+    final request = http.MultipartRequest('POST', Uri.parse('${ApiConfig.baseUrl}$path'));
+    final headers = await AuthHeaders();
+    headers.remove('Content-Type');
+    request.headers.addAll(headers);
+    request.fields.addAll(fields);
+    if (bytes != null && bytes.isNotEmpty) {
+      request.files.add(http.MultipartFile.fromBytes('fotografia', bytes, filename: filename ?? 'planta.jpg'));
+    }
+    final streamed = await request.send().timeout(ApiConfig.requestTimeout);
+    return http.Response.fromStream(streamed);
+  }
+
+  Future<http.Response> PatchMultipart(
+    String path, {
+    required Map<String, String> fields,
+    List<int>? bytes,
+    String? filename,
+  }) async {
+    final request = http.MultipartRequest('PATCH', Uri.parse('${ApiConfig.baseUrl}$path'));
+    final headers = await AuthHeaders();
+    headers.remove('Content-Type');
+    request.headers.addAll(headers);
+    request.fields.addAll(fields);
+    if (bytes != null && bytes.isNotEmpty) {
+      request.files.add(http.MultipartFile.fromBytes('fotografia', bytes, filename: filename ?? 'planta.jpg'));
+    }
+    final streamed = await request.send().timeout(ApiConfig.requestTimeout);
+    return http.Response.fromStream(streamed);
+  }
+
   /// Realiza una petición PATCH.
   Future<http.Response> Patch(String path, {Map<String, dynamic>? body}) async {
     final url = Uri.parse('${ApiConfig.baseUrl}$path');

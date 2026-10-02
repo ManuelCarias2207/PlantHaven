@@ -5,6 +5,12 @@ import 'package:flutter_app/services/plant_service.dart';
 enum PlantState { initial, loading, ready, error }
 
 class PlantController extends ChangeNotifier {
+  static const List<PlantCategory> _fallbackCategories = [
+    PlantCategory(idCategoria: 2, nombre: 'Interior', estado: 'ACTIVA'),
+    PlantCategory(idCategoria: 3, nombre: 'Exterior', estado: 'ACTIVA'),
+    PlantCategory(idCategoria: 4, nombre: 'Suculenta', estado: 'ACTIVA'),
+  ];
+
   final PlantService _plantService;
 
   PlantController({PlantService? plantService})
@@ -14,12 +20,31 @@ class PlantController extends ChangeNotifier {
   String? _errorMessage;
   List<PlantModel> _plants = [];
   List<PlantModel> _myPlants = [];
+  List<PlantCategory> _categories = [];
 
   PlantState get state => _state;
   String? get errorMessage => _errorMessage;
   List<PlantModel> get plants => List.unmodifiable(_plants);
   List<PlantModel> get myPlants => List.unmodifiable(_myPlants);
+  List<PlantCategory> get categories => List.unmodifiable(_categories);
   bool get isLoading => _state == PlantState.loading;
+
+  Future<bool> loadCategories() async {
+    _setLoading();
+    try {
+      final remoteCategories = await _plantService.GetCategories();
+      _categories = remoteCategories.isEmpty
+          ? _fallbackCategories
+          : remoteCategories;
+      _setReady();
+      return true;
+    } catch (e) {
+      debugPrint('[PlantController] Error cargando categorías: $e');
+      _categories = _fallbackCategories;
+      _setReady();
+      return false;
+    }
+  }
 
   Future<bool> loadCatalog() async {
     _setLoading();
@@ -45,27 +70,49 @@ class PlantController extends ChangeNotifier {
     }
   }
 
-  Future<PlantModel?> createPlant(PlantRequest request) async {
+  Future<PlantModel?> createPlant(
+    PlantRequest request, {
+    List<int>? imageBytes,
+    String? imageName,
+  }) async {
     _setLoading();
     try {
-      final plant = await _plantService.CreatePlant(request);
+      final plant = await _plantService.CreatePlant(
+        request,
+        imageBytes: imageBytes,
+        imageName: imageName,
+      );
       _myPlants = [plant, ..._myPlants];
-      await loadCatalog();
+      await _refreshCatalogAfterMutation();
+      _setReady();
       return plant;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('[PlantController] Error publicando planta: $e');
+      debugPrint('$stackTrace');
       _setFailure(e);
       return null;
     }
   }
 
-  Future<PlantModel?> updatePlant(int id, PlantRequest request) async {
+  Future<PlantModel?> updatePlant(
+    int id,
+    PlantRequest request, {
+    List<int>? imageBytes,
+    String? imageName,
+  }) async {
     _setLoading();
     try {
-      final plant = await _plantService.UpdatePlant(id, request);
+      final plant = await _plantService.UpdatePlant(
+        id,
+        request,
+        imageBytes: imageBytes,
+        imageName: imageName,
+      );
       _myPlants = _myPlants
           .map((item) => item.idPlanta == id ? plant : item)
           .toList();
-      await loadCatalog();
+      await _refreshCatalogAfterMutation();
+      _setReady();
       return plant;
     } catch (e) {
       _setFailure(e);
@@ -100,7 +147,8 @@ class PlantController extends ChangeNotifier {
           categoria: item.categoria,
         );
       }).toList();
-      await loadCatalog();
+      await _refreshCatalogAfterMutation();
+      _setReady();
       return true;
     } catch (e) {
       _setFailure(e);
@@ -135,5 +183,13 @@ class PlantController extends ChangeNotifier {
     _state = PlantState.error;
     _errorMessage = error.toString();
     notifyListeners();
+  }
+
+  Future<void> _refreshCatalogAfterMutation() async {
+    try {
+      _plants = await _plantService.GetCatalog();
+    } catch (e) {
+      debugPrint('[PlantController] No se pudo actualizar el catálogo: $e');
+    }
   }
 }

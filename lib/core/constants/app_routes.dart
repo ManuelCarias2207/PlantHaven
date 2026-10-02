@@ -13,4 +13,5 @@ class AppRoutes {
   static const String publishPlant = '/publicar-planta';
   static const String myPublications = '/mis-publicaciones';
   static const String editPlant = '/editar-planta/:id';
+  static const String plantDetail = '/planta/:id';
 }

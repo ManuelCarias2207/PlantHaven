@@ -9,6 +9,8 @@ import 'package:flutter_app/views/catalog_view.dart';
 import 'package:flutter_app/views/plant_form_view.dart';
 import 'package:flutter_app/views/my_plants_view.dart';
 import 'package:flutter_app/views/messages_view.dart';
+import 'package:flutter_app/views/plant_detail_view.dart';
+import 'package:flutter_app/models/plant_model.dart';
 import 'package:go_router/go_router.dart';
 
 /// Router principal de la aplicación con guard de autenticación.
@@ -69,6 +71,16 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.myPublications,
         builder: (context, state) => const MyPlantsView(),
+      ),
+      GoRoute(
+        path: AppRoutes.plantDetail,
+        builder: (context, state) {
+          final plant = state.extra;
+          if (plant is PlantModel) return PlantDetailView(plant: plant);
+          return const Scaffold(
+            body: Center(child: Text('No se pudo cargar el detalle de la planta.')),
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.editPlant,

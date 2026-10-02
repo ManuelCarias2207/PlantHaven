@@ -20,6 +20,60 @@ Se refactorizó completamente el proyecto Flutter de **Clean Architecture con da
 | POST | `/api/auth/register` | Registrar usuario. Body: `{nombre, apellido, correo, telefono, contrasena, confirmar_contrasena}`. Retorna datos del usuario (201) |
 | GET | `/api/usuarios/me` | Obtener perfil del usuario autenticado. Requiere header `Authorization: Bearer <token>` |
 | PATCH | `/api/usuarios/me` | Actualizar datos personales. Body: `{nombre, apellido, correo, telefono}` |
+| GET | `/api/categorias` | Obtener las categorías disponibles con sus IDs reales para el formulario de plantas |
+
+### Corrección del formulario de publicación de plantas (2026-09-30)
+
+Se corrigió el error `ApiException(404): Categoría no encontrada`, que se producía porque el selector de categorías utilizaba una lista fija con IDs asumidos (`2`, `3` y `4`). La implementación actual obtiene las categorías desde el backend antes de mostrar el formulario.
+
+#### Flujo implementado
+
+1. `PlantFormView._prepare()` llama a `PlantController.loadCategories()` al abrir el formulario.
+2. `PlantController.loadCategories()` delega la consulta a `PlantService.GetCategories()` y conserva la lista en `categories`.
+3. `PlantService.GetCategories()` realiza `GET /api/categorias`.
+4. El selector muestra `PlantCategory.nombre` y guarda `PlantCategory.idCategoria` en `_categoryId`.
+5. `PlantRequest.toJson()` envía el ID seleccionado en el campo que espera la API:
+
+La petición de categorías utiliza `ApiService.Get()`, que obtiene los headers mediante `AuthHeaders()` y agrega `Authorization: Bearer <token>` cuando existe una sesión activa.
+
+Si la petición falla, `PlantController.loadCategories()` ejecuta `print(e)` para mostrar el error exacto en la Consola de Depuración y carga las categorías locales de respaldo (`Interior`, `Exterior` y `Suculenta`). El mismo respaldo se usa cuando el servidor responde correctamente pero devuelve una lista vacía, garantizando que el selector siempre tenga opciones.
+
+```json
+{
+  "nombre": "Monstera deliciosa",
+  "tamano": "Mediano",
+  "nivel_cuidado": "Luz indirecta y riego semanal",
+  "estado_salud": "Excelente",
+  "necesidad_luz": "Media",
+  "necesidad_agua": "Medio",
+  "ubicacion": "Santa Tecla",
+  "id_categoria": 12,
+  "descripcion": "Planta saludable"
+}
+```
+
+El valor `12` del ejemplo debe ser reemplazado por el ID entregado por `GET /api/categorias`; no se debe volver a introducir un ID fijo en la interfaz.
+
+#### Registro temporal del payload
+
+Antes de enviar la petición se imprime el JSON completo en la consola:
+
+```text
+[PlantService] POST /api/plantas/ payload: {"...":"...","id_categoria":12}
+```
+
+Para ediciones también se registra el payload del `PATCH`. Esta salida permite comprobar el ID de categoría y el resto de los campos antes de investigar el backend. Si se publica una versión de producción y no se desea mostrar información del formulario en consola, estas trazas deben eliminarse o protegerse con una condición de modo debug.
+
+#### Compatibilidad de respuestas
+
+El parser de categorías acepta una respuesta como lista directa o envuelta en `items`, `categorias` o `data`. Para el ID admite `id_categoria`, `categoria_id` o `id`; para el nombre admite `nombre`, `name` o `descripcion`. Si el endpoint cambia, se debe actualizar principalmente `PlantService.GetCategories()` y `PlantCategory.fromJson()`.
+
+#### Archivos modificados
+
+- `lib/views/plant_form_view.dart`: elimina categorías hardcoded y usa las categorías cargadas desde la API.
+- `lib/controllers/plant_controller.dart`: agrega `loadCategories()` y el estado `categories`.
+- `lib/services/plant_service.dart`: agrega el `GET /api/categorias` y el registro del payload de `POST`/`PATCH`.
+- `lib/models/plant_model.dart`: permite mapear los IDs y nombres de categoría devueltos por la API.
 
 ---
 

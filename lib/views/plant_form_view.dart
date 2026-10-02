@@ -22,11 +22,6 @@ class PlantFormView extends StatefulWidget {
 }
 
 class _PlantFormViewState extends State<PlantFormView> {
-  static const _categories = [
-    (id: 2, label: 'Interior'),
-    (id: 3, label: 'Exterior'),
-    (id: 4, label: 'Suculenta'),
-  ];
   static const _sizes = [
     (value: 'Pequeno', label: 'Pequeña', detail: 'Hasta 30 cm'),
     (value: 'Mediano', label: 'Mediana', detail: '30 cm a 1 m'),
@@ -71,6 +66,8 @@ class _PlantFormViewState extends State<PlantFormView> {
       if (mounted) context.go(AppRoutes.login);
       return;
     }
+
+    await plants.loadCategories();
 
     if (_isEditing) {
       await plants.loadMyPlants();
@@ -160,9 +157,21 @@ class _PlantFormViewState extends State<PlantFormView> {
       descripcion: _descriptionController.text.trim(),
     );
     final plants = context.read<PlantController>();
+    final imageBytes = _selectedImage == null
+        ? null
+        : await _selectedImage!.readAsBytes();
     final result = _isEditing
-        ? await plants.updatePlant(widget.plantId!, request)
-        : await plants.createPlant(request);
+        ? await plants.updatePlant(
+            widget.plantId!,
+            request,
+            imageBytes: imageBytes,
+            imageName: _selectedImage?.name,
+          )
+        : await plants.createPlant(
+            request,
+            imageBytes: imageBytes,
+            imageName: _selectedImage?.name,
+          );
     if (!mounted) return;
     if (result == null) {
       _showError(plants.friendlyError());
@@ -298,20 +307,28 @@ class _PlantFormViewState extends State<PlantFormView> {
             ),
             const SizedBox(height: 22),
             _sectionLabel('Tipo de planta *'),
-            Wrap(
-              spacing: 8,
-              children: _categories
-                  .map(
-                    (item) => ChoiceChip(
-                      label: Text(item.label),
-                      selected: _categoryId == item.id,
-                      onSelected: plants.isLoading
-                          ? null
-                          : (_) => setState(() => _categoryId = item.id),
-                    ),
-                  )
-                  .toList(),
-            ),
+            if (plants.categories.isEmpty)
+              const Text(
+                'No se pudieron cargar las categorías desde el servidor.',
+                style: TextStyle(color: AppColors.error, fontSize: 12),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                children: plants.categories
+                    .map(
+                      (item) => ChoiceChip(
+                        label: Text(item.nombre),
+                        selected: _categoryId == item.idCategoria,
+                        onSelected: plants.isLoading
+                            ? null
+                            : (_) => setState(
+                                () => _categoryId = item.idCategoria,
+                              ),
+                      ),
+                    )
+                    .toList(),
+              ),
             if (_categoryId == null)
               const Padding(
                 padding: EdgeInsets.only(top: 6),
