@@ -46,7 +46,7 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
 
     _showMessage(AppStrings.forgotPasswordSuccess);
     await Future<void>.delayed(const Duration(milliseconds: 700));
-    if (mounted) context.go(AppRoutes.resetPassword);
+    if (mounted) context.go(AppRoutes.resetPassword, extra: _emailController.text.trim());
   }
 
   void _showMessage(String message) {

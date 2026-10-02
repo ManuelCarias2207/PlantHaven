@@ -50,7 +50,9 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.resetPassword,
-        builder: (context, state) => const ResetPasswordView(),
+        builder: (context, state) => ResetPasswordView(
+          correoInicial: state.extra is String ? state.extra as String : '',
+        ),
       ),
       GoRoute(
         path: AppRoutes.profile,

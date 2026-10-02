@@ -95,12 +95,14 @@ class AuthService {
 
   /// Cambia la contrasena usando el token/codigo recibido.
   Future<void> ResetPassword({
-    required String token,
+    required String correo,
+    required String codigo,
     required String nuevaContrasena,
     required String confirmarContrasena,
   }) async {
     final request = ResetPasswordRequest(
-      token: token,
+      correo: correo,
+      codigo: codigo,
       nuevaContrasena: nuevaContrasena,
       confirmarContrasena: confirmarContrasena,
     );

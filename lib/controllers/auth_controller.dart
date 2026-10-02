@@ -175,7 +175,8 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<bool> resetPassword({
-    required String token,
+    required String correo,
+    required String codigo,
     required String nuevaContrasena,
     required String confirmarContrasena,
   }) async {
@@ -183,7 +184,8 @@ class AuthController extends ChangeNotifier {
 
     try {
       await _authService.ResetPassword(
-        token: token,
+        correo: correo,
+        codigo: codigo,
         nuevaContrasena: nuevaContrasena,
         confirmarContrasena: confirmarContrasena,
       );
@@ -191,7 +193,7 @@ class AuthController extends ChangeNotifier {
       return true;
     } on ApiException catch (e) {
       debugPrint('ApiException en ResetPassword: $e');
-      _setError(_friendlyErrorMessage(e));
+      _setError(e.statusCode == 400 ? e.message : _friendlyErrorMessage(e));
       return false;
     } on http.ClientException catch (e) {
       debugPrint('ClientException en ResetPassword: $e');

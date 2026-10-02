@@ -8,18 +8,21 @@ class ForgotPasswordRequest {
 }
 
 class ResetPasswordRequest {
-  final String token;
+  final String correo;
+  final String codigo;
   final String nuevaContrasena;
   final String confirmarContrasena;
 
   const ResetPasswordRequest({
-    required this.token,
+    required this.correo,
+    required this.codigo,
     required this.nuevaContrasena,
     required this.confirmarContrasena,
   });
 
   Map<String, dynamic> toJson() => {
-    'token': token,
+    'correo': correo,
+    'codigo': codigo,
     'nueva_contrasena': nuevaContrasena,
     'confirmar_contrasena': confirmarContrasena,
   };

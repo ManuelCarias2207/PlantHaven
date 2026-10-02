@@ -13,7 +13,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 class ResetPasswordView extends StatefulWidget {
-  const ResetPasswordView({super.key});
+  final String correoInicial;
+  const ResetPasswordView({super.key, this.correoInicial = ''});
 
   @override
   State<ResetPasswordView> createState() => _ResetPasswordViewState();
@@ -21,6 +22,7 @@ class ResetPasswordView extends StatefulWidget {
 
 class _ResetPasswordViewState extends State<ResetPasswordView> {
   final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
   final _tokenController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
@@ -28,6 +30,7 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
   @override
   void initState() {
     super.initState();
+    _emailController.text = widget.correoInicial;
     _passwordController.addListener(_refreshPasswordState);
     _confirmController.addListener(_refreshPasswordState);
   }
@@ -36,6 +39,7 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
   void dispose() {
     _passwordController.removeListener(_refreshPasswordState);
     _confirmController.removeListener(_refreshPasswordState);
+    _emailController.dispose();
     _tokenController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
@@ -50,7 +54,8 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
     if (!_formKey.currentState!.validate()) return;
 
     final success = await context.read<AuthController>().resetPassword(
-      token: _tokenController.text.trim(),
+      correo: _emailController.text.trim(),
+      codigo: _tokenController.text.trim(),
       nuevaContrasena: _passwordController.text,
       confirmarContrasena: _confirmController.text,
     );
@@ -129,11 +134,26 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       AuthTextField(
+                        label: AppStrings.forgotPasswordEmailLabel,
+                        hint: AppStrings.forgotPasswordEmailHint,
+                        icon: Icons.email_outlined,
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        validator: Validators.email,
+                        enabled: !controller.isLoading,
+                      ),
+                      const SizedBox(height: 18),
+                      AuthTextField(
                         label: AppStrings.resetPasswordCodeLabel,
                         hint: AppStrings.resetPasswordCodeHint,
                         icon: Icons.password_outlined,
                         controller: _tokenController,
-                        validator: Validators.required,
+                        validator: (value) {
+                          if (value == null || !RegExp(r'^\d{8}$').hasMatch(value.trim())) {
+                            return 'Ingresa el código de ocho números';
+                          }
+                          return null;
+                        },
                         enabled: !controller.isLoading,
                       ),
                       const SizedBox(height: 18),

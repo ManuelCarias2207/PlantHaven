@@ -25,11 +25,11 @@ class AppStrings {
   static const String forgotPasswordEmailHint = 'correo@ejemplo.com';
   static const String forgotPasswordButton = 'Enviar codigo';
   static const String forgotPasswordSuccess =
-      'Revisa tu correo para obtener el codigo de recuperacion.';
+      'Si el correo está registrado, recibirás un código de recuperación.';
   static const String resetPasswordTitle = 'Restablecer contrasena';
   static const String resetPasswordSubtitle =
       'Ingresa el codigo recibido y crea una nueva contrasena';
-  static const String resetPasswordCodeLabel = 'Codigo o token';
+  static const String resetPasswordCodeLabel = 'Código de ocho números';
   static const String resetPasswordCodeHint = 'Ingresa el codigo recibido';
   static const String resetPasswordNewLabel = 'Nueva contrasena';
   static const String resetPasswordConfirmLabel = 'Confirmar nueva contrasena';
