@@ -71,8 +71,14 @@ class _ProfileViewState extends State<ProfileView> {
       telefono: _phoneController.text.trim(),
     );
 
+    if (!mounted) return;
+
     setState(() {
       _isLoading = false;
+      _errorMessage = success
+          ? null
+          : controller.errorMessage ??
+              'No se pudo actualizar el perfil. Inténtalo de nuevo.';
       if (success) {
         _isEditing = false;
       }
