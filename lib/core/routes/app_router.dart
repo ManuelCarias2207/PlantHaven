@@ -76,9 +76,31 @@ class AppRouter {
         path: AppRoutes.plantDetail,
         builder: (context, state) {
           final plant = state.extra;
-          if (plant is PlantModel) return PlantDetailView(plant: plant);
+          if (plant is Plant) return PlantDetailView(plant: plant);
+          if (plant is PlantModel) {
+            return PlantDetailView(
+              plant: Plant(
+                id: plant.idPlanta,
+                nombre: plant.nombre,
+                categoria: plant.categoria?.nombre ?? 'Interior',
+                estado: plant.estadoPlanta,
+                precio: 'Gratis',
+                tamano: plant.tamano.isEmpty ? 'Mediano' : plant.tamano,
+                nivelCuidado: plant.nivelCuidado.isEmpty
+                    ? 'Intermedio'
+                    : plant.nivelCuidado,
+                luz: plant.necesidadLuz.isEmpty ? 'Media' : plant.necesidadLuz,
+                ubicacion: plant.ubicacion.isEmpty
+                    ? 'Sonsonate centro'
+                    : plant.ubicacion,
+                fechaPublicacion: plant.fechaPublicacion ?? DateTime.now(),
+              ),
+            );
+          }
           return const Scaffold(
-            body: Center(child: Text('No se pudo cargar el detalle de la planta.')),
+            body: Center(
+              child: Text('No se pudo cargar el detalle de la planta.'),
+            ),
           );
         },
       ),
