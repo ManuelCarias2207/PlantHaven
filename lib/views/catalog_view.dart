@@ -9,7 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 // DTO conservado para la pantalla de detalle. El catálogo consume PlantModel.
-class Plant {
+/*class Plant {
   final int id;
   final String nombre,
       categoria,
@@ -32,7 +32,7 @@ class Plant {
     required this.ubicacion,
     required this.fechaPublicacion,
   });
-}
+}*/
 
 class CatalogView extends StatefulWidget {
   const CatalogView({super.key});
