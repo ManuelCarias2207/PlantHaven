@@ -41,6 +41,7 @@ class PlantModel {
   final int idUsuario;
   final int idCategoria;
   final String? fotografiaUrl;
+  final List<String> fotografias;
   final bool puedeSolicitar;
   final PlantCategory? categoria;
 
@@ -61,6 +62,7 @@ class PlantModel {
     required this.idUsuario,
     required this.idCategoria,
     required this.fotografiaUrl,
+    this.fotografias = const [],
     required this.puedeSolicitar,
     required this.categoria,
   });
@@ -86,6 +88,10 @@ class PlantModel {
       idUsuario: _asInt(json['id_usuario'] ?? json['usuario_id']),
       idCategoria: idCategoria,
       fotografiaUrl: _imageUrl(json),
+      fotografias: (json['fotografias'] as List? ?? [])
+          .whereType<String>()
+          .where((url) => url.trim().isNotEmpty)
+          .toList(),
       puedeSolicitar: _asBool(json['puede_solicitar']),
       categoria: categoriaJson is Map<String, dynamic>
           ? PlantCategory.fromJson(categoriaJson)
@@ -100,7 +106,8 @@ class PlantModel {
   static String _asString(dynamic value) => value is String ? value : '';
 
   static String? _imageUrl(Map<String, dynamic> json) {
-    final value = json['fotografia_url'] ??
+    final value =
+        json['fotografia_url'] ??
         json['foto_url'] ??
         json['imagen_url'] ??
         json['fotografia'] ??

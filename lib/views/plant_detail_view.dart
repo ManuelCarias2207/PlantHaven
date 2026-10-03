@@ -1,3 +1,4 @@
+import 'package:flutter_app/services/plant_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_app/controllers/auth_controller.dart';
 
@@ -24,7 +25,8 @@ import 'package:provider/provider.dart';
 class PlantDetailView extends StatefulWidget {
   final PlantModel plant;
 
-  const PlantDetailView({super.key, required this.plant});
+  final PlantService? service;
+  const PlantDetailView({super.key, required this.plant, this.service});
 
   @override
   State<PlantDetailView> createState() => _PlantDetailViewState();
@@ -39,7 +41,37 @@ class _PlantDetailViewState extends State<PlantDetailView> {
 
   AdoptionRequest? _submittedRequest;
 
-  PlantModel get plant => widget.plant;
+  PlantModel? _loadedPlant;
+  bool _loading = true;
+  String? _loadError;
+  PlantModel get plant => _loadedPlant ?? widget.plant;
+
+  Future<void> _reload() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final updated = await (widget.service ?? PlantService()).GetPlant(
+        widget.plant.idPlanta,
+      );
+      if (!mounted) return;
+      setState(() {
+        _loadedPlant = updated;
+        _requestSent = false;
+        _submittedRequest = null;
+      });
+      await _loadExistingRequest();
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _loadError = 'No se pudo cargar la publicación. Puede haber sido retirada o no estar disponible. Comprueba tu conexión e intenta otra vez.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   bool get _isOwner =>
       context.read<AuthController>().currentUser?.idUsuario == plant.idUsuario;
@@ -70,7 +102,7 @@ class _PlantDetailViewState extends State<PlantDetailView> {
   void initState() {
     super.initState();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadExistingRequest());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
   }
 
   Future<void> _loadExistingRequest() async {
@@ -132,6 +164,11 @@ class _PlantDetailViewState extends State<PlantDetailView> {
       ),
 
       actions: [
+        IconButton(
+          tooltip: 'Actualizar detalle',
+          onPressed: _loading ? null : _reload,
+          icon: const Icon(Icons.refresh),
+        ),
         Text(
           'REF: PH-${plant.idPlanta.toString().padLeft(4, '0')}',
 
@@ -178,12 +215,17 @@ class _PlantDetailViewState extends State<PlantDetailView> {
       ],
     ),
 
-    bottomNavigationBar: _isOwner
+    bottomNavigationBar: _loading || _loadError != null
+        ? null
+        : _isOwner
         ? SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: FilledButton(
-                onPressed: () => context.push(AppRoutes.myPublications),
+                onPressed: () async {
+                  await context.push(AppRoutes.myPublications);
+                  if (mounted) await _reload();
+                },
                 child: const Text('Gestionar mi publicación'),
               ),
             ),
@@ -200,241 +242,265 @@ class _PlantDetailViewState extends State<PlantDetailView> {
             onPressed: _requestAdoptionRemote,
           ),
 
-    body: SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
-
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-
-        children: [
-          _Gallery(
-            plant: plant,
-
-            favorite: _favorite,
-
-            onFavorite: () => setState(() => _favorite = !_favorite),
-          ),
-
-          const SizedBox(height: 24),
-
-          _StatusChip(
-            label: _isAvailable
-                ? 'Disponible para adopción'
-                : plant.estadoPlanta,
-          ),
-
-          const SizedBox(height: 12),
-
-          Text(
-            plant.nombre,
-
-            style: const TextStyle(
-              fontSize: 32,
-
-              height: 1.08,
-
-              fontWeight: FontWeight.w800,
-
-              color: AppColors.primary,
-            ),
-          ),
-
-          const SizedBox(height: 6),
-
-          Text(
-            plant.descripcion?.trim().isNotEmpty == true
-                ? plant.descripcion!
-                : 'Información proporcionada por la persona donante.',
-
-            style: const TextStyle(
-              fontSize: 15,
-
-              fontStyle: FontStyle.italic,
-
-              color: AppColors.textSecondary,
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          _sectionTitle(Icons.grid_view_rounded, 'Características'),
-
-          const SizedBox(height: 12),
-
-          GridView.count(
-            crossAxisCount: 2,
-
-            shrinkWrap: true,
-
-            physics: const NeverScrollableScrollPhysics(),
-
-            mainAxisSpacing: 10,
-
-            crossAxisSpacing: 10,
-
-            childAspectRatio: 2.25,
-
-            children: [
-              _FeatureTile(
-                icon: Icons.home_work_outlined,
-
-                title: 'Tipo',
-
-                value: _category,
-              ),
-
-              _FeatureTile(
-                icon: Icons.straighten,
-
-                title: 'Tamaño',
-
-                value: _size,
-              ),
-
-              _FeatureTile(
-                icon: Icons.wb_sunny_outlined,
-
-                title: 'Luz',
-
-                value: _light,
-              ),
-
-              _FeatureTile(
-                icon: Icons.spa_outlined,
-
-                title: 'Cuidado',
-
-                value: _care,
-              ),
-
-              _FeatureTile(
-                icon: Icons.health_and_safety_outlined,
-
-                title: 'Salud',
-
-                value: _health,
-
-                valueColor: AppColors.accent,
-              ),
-
-              _FeatureTile(
-                icon: Icons.location_on_outlined,
-
-                title: 'Zona',
-
-                value: _location,
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 28),
-
-          _sectionTitle(Icons.description_outlined, 'Descripción de la planta'),
-
-          const SizedBox(height: 12),
-
-          _SoftPanel(
-            child: Text(
-              plant.descripcion?.trim().isNotEmpty == true
-                  ? plant.descripcion!
-                  : 'La persona donante no agregó una descripción para esta planta.',
-
-              style: const TextStyle(
-                height: 1.55,
-
-                color: AppColors.textSecondary,
+    body: _loading
+        ? const Center(child: CircularProgressIndicator())
+        : _loadError != null
+        ? Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(_loadError!),
+                  TextButton(
+                    onPressed: _reload,
+                    child: const Text('Reintentar'),
+                  ),
+                ],
               ),
             ),
-          ),
+          )
+        : SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
 
-          const SizedBox(height: 28),
-
-          _sectionTitle(Icons.water_drop_outlined, 'Cuidados recomendados'),
-
-          const SizedBox(height: 12),
-
-          _SoftPanel(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
 
               children: [
+                _Gallery(
+                  plant: plant,
+
+                  favorite: _favorite,
+
+                  onFavorite: () => setState(() => _favorite = !_favorite),
+                ),
+
+                const SizedBox(height: 24),
+
+                _StatusChip(
+                  label: _isAvailable
+                      ? 'Disponible para adopción'
+                      : plant.estadoPlanta,
+                ),
+
+                const SizedBox(height: 12),
+
                 Text(
-                  'Información de riego: $_water',
+                  plant.nombre,
 
                   style: const TextStyle(
-                    height: 1.5,
+                    fontSize: 32,
+
+                    height: 1.08,
+
+                    fontWeight: FontWeight.w800,
+
+                    color: AppColors.primary,
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+
+                Text(
+                  plant.descripcion?.trim().isNotEmpty == true
+                      ? plant.descripcion!
+                      : 'Información proporcionada por la persona donante.',
+
+                  style: const TextStyle(
+                    fontSize: 15,
+
+                    fontStyle: FontStyle.italic,
 
                     color: AppColors.textSecondary,
                   ),
                 ),
 
-                const SizedBox(height: 14),
+                const SizedBox(height: 24),
 
-                Wrap(
-                  spacing: 8,
+                _sectionTitle(Icons.grid_view_rounded, 'Características'),
 
-                  runSpacing: 8,
+                const SizedBox(height: 12),
+
+                GridView.count(
+                  crossAxisCount: 2,
+
+                  shrinkWrap: true,
+
+                  physics: const NeverScrollableScrollPhysics(),
+
+                  mainAxisSpacing: 10,
+
+                  crossAxisSpacing: 10,
+
+                  childAspectRatio: 2.25,
 
                   children: [
-                    _CareChip(
-                      icon: Icons.water_drop_outlined,
+                    _FeatureTile(
+                      icon: Icons.home_work_outlined,
 
-                      label: 'Riego: $_water',
+                      title: 'Tipo',
+
+                      value: _category,
                     ),
 
-                    _CareChip(
+                    _FeatureTile(
+                      icon: Icons.straighten,
+
+                      title: 'Tamaño',
+
+                      value: _size,
+                    ),
+
+                    _FeatureTile(
                       icon: Icons.wb_sunny_outlined,
 
-                      label: 'Luz: $_light',
+                      title: 'Luz',
+
+                      value: _light,
                     ),
 
-                    _CareChip(
+                    _FeatureTile(
                       icon: Icons.spa_outlined,
 
-                      label: 'Cuidado: $_care',
+                      title: 'Cuidado',
+
+                      value: _care,
+                    ),
+
+                    _FeatureTile(
+                      icon: Icons.health_and_safety_outlined,
+
+                      title: 'Salud',
+
+                      value: _health,
+
+                      valueColor: AppColors.accent,
+                    ),
+
+                    _FeatureTile(
+                      icon: Icons.location_on_outlined,
+
+                      title: 'Zona',
+
+                      value: _location,
                     ),
                   ],
                 ),
+
+                const SizedBox(height: 28),
+
+                _sectionTitle(
+                  Icons.description_outlined,
+                  'Descripción de la planta',
+                ),
+
+                const SizedBox(height: 12),
+
+                _SoftPanel(
+                  child: Text(
+                    plant.descripcion?.trim().isNotEmpty == true
+                        ? plant.descripcion!
+                        : 'La persona donante no agregó una descripción para esta planta.',
+
+                    style: const TextStyle(
+                      height: 1.55,
+
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 28),
+
+                _sectionTitle(
+                  Icons.water_drop_outlined,
+                  'Cuidados recomendados',
+                ),
+
+                const SizedBox(height: 12),
+
+                _SoftPanel(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+
+                    children: [
+                      Text(
+                        'Información de riego: $_water',
+
+                        style: const TextStyle(
+                          height: 1.5,
+
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      Wrap(
+                        spacing: 8,
+
+                        runSpacing: 8,
+
+                        children: [
+                          _CareChip(
+                            icon: Icons.water_drop_outlined,
+
+                            label: 'Riego: $_water',
+                          ),
+
+                          _CareChip(
+                            icon: Icons.wb_sunny_outlined,
+
+                            label: 'Luz: $_light',
+                          ),
+
+                          _CareChip(
+                            icon: Icons.spa_outlined,
+
+                            label: 'Cuidado: $_care',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 28),
+
+                _InfoCard(
+                  icon: Icons.verified_outlined,
+
+                  title: 'Estado de la publicación',
+
+                  description:
+                      'Estado actual: ${plant.estadoPlanta.isEmpty ? 'No indicado' : plant.estadoPlanta}.',
+                ),
+
+                _InfoCard(
+                  icon: Icons.privacy_tip_outlined,
+
+                  title: 'Privacidad protegida',
+
+                  description: 'La información mostrada corresponde a los datos públicos de esta publicación.',
+                ),
+
+                const _StatusLegend(),
+
+                if (_submittedRequest != null)
+                  Align(
+                    alignment: Alignment.center,
+
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.chat_bubble_outline),
+
+                      label: const Text('Mensajes'),
+
+                      onPressed: () => _openChatPlaceholder(_submittedRequest!),
+                    ),
+                  ),
               ],
             ),
           ),
-
-          const SizedBox(height: 28),
-
-          _InfoCard(
-            icon: Icons.verified_outlined,
-
-            title: 'Estado de la publicación',
-
-            description:
-                'Estado actual: ${plant.estadoPlanta.isEmpty ? 'No indicado' : plant.estadoPlanta}.',
-          ),
-
-          _InfoCard(
-            icon: Icons.privacy_tip_outlined,
-
-            title: 'Privacidad protegida',
-
-            description: 'La información mostrada corresponde a los datos públicos de esta publicación.',
-          ),
-
-          const _StatusLegend(),
-
-          if (_submittedRequest != null)
-            Align(
-              alignment: Alignment.center,
-
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.chat_bubble_outline),
-
-                label: const Text('Mensajes'),
-
-                onPressed: () => _openChatPlaceholder(_submittedRequest!),
-              ),
-            ),
-        ],
-      ),
-    ),
   );
 
   Widget _sectionTitle(IconData icon, String title) => Row(
@@ -512,29 +578,55 @@ class _PlantDetailViewState extends State<PlantDetailView> {
 
     /* await showDialog<void>(
 
+
+
       context: context,
+
+
 
       builder: (context) => AlertDialog(
 
+
+
         icon: const Icon(Icons.check_circle, color: AppColors.accent, size: 48),
+
+
 
         title: const Text('¡Solicitud enviada!'),
 
+
+
         content: const Text('El donante recibió tu motivo de adopción.'),
+
+
 
         actions: [
 
+
+
           TextButton(
+
+
 
             onPressed: () => Navigator.pop(context),
 
+
+
             child: const Text('Entendido'),
+
+
 
           ),
 
+
+
         ],
 
+
+
       ),
+
+
 
     ); */
   }
@@ -639,39 +731,75 @@ class _RequestSheetState extends State<_RequestSheet> {
 
 /* class _RequestSheetV2 extends StatefulWidget {
 
+
+
   final PlantModel plant;
+
+
 
   const _RequestSheetV2({required this.plant});
 
+
+
   @override State<_RequestSheetV2> createState() => _RequestSheetV2State();
+
+
 
 }
 
 
 
+
+
+
+
 class _RequestSheetV2State extends State<_RequestSheetV2> {
+
+
 
   final _controller = TextEditingController();
 
+
+
   @override void dispose() { _controller.dispose(); super.dispose(); }
+
+
 
   @override Widget build(BuildContext context) => Material(color: AppColors.background, child: SafeArea(child: Padding(padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.viewInsetsOf(context).bottom + 16), child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
+
+
     Row(children: [IconButton(icon: const Icon(Icons.close, color: AppColors.primary), onPressed: () => Navigator.pop(context)), const Expanded(child: Center(child: Text('Solicitar adopción', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)))), const CircleAvatar(radius: 18, backgroundColor: AppColors.primary, child: Icon(Icons.spa_outlined, color: Colors.white, size: 20))]),
+
+
 
     const SizedBox(height: 12),
 
+
+
     Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)), child: Row(children: [ClipOval(child: SizedBox(width: 54, height: 54, child: PlantImage(url: widget.plant.fotografiaUrl))), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFFDCE9DF), borderRadius: BorderRadius.circular(12)), child: const Text('Disponible', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.primary))), const SizedBox(height: 5), Text(widget.plant.nombre, style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary)), Text('${widget.plant.categoria?.nombre ?? 'Planta'}  ·  ${widget.plant.estadoSalud.isEmpty ? 'Rescate comunitario' : widget.plant.estadoSalud}', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary))]))]),
+
+
 
     const SizedBox(height: 22), const Text('¿Por qué deseas adoptar esta planta? *', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary)), const SizedBox(height: 6), const Text('Cuéntale al donante cómo la cuidarías.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)), const SizedBox(height: 10),
 
+
+
     TextField(controller: _controller, maxLength: 500, maxLines: 5, decoration: const InputDecoration(hintText: 'Escribe tu mensaje aquí...', fillColor: Color(0xFFF0EFEA), filled: true, border: OutlineInputBorder(borderSide: BorderSide.none, borderRadius: BorderRadius.all(Radius.circular(14)))),),
+
+
 
     const SizedBox(height: 12), Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFFEEEBE2), borderRadius: BorderRadius.circular(16)), child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(Icons.lightbulb_outline, color: AppColors.accent), SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Consejo de adopción', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary)), SizedBox(height: 4), Text('Menciona si tienes buena luz natural o experiencia previa con plantas tropicales.', style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.textSecondary))]))]),
 
+
+
     const SizedBox(height: 12), const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(Icons.shield_outlined, size: 18, color: AppColors.textDisabled), SizedBox(width: 8), Expanded(child: Text('Tu solicitud será evaluada directamente por el donante. No compartiremos datos sensibles.', style: TextStyle(fontSize: 11, height: 1.4, color: AppColors.textSecondary)))]), const SizedBox(height: 18),
 
+
+
     SizedBox(width: double.infinity, height: 50, child: FilledButton.icon(onPressed: () => Navigator.pop(context, _controller.text), icon: const Icon(Icons.front_hand_outlined), label: const Text('Enviar solicitud', style: TextStyle(fontWeight: FontWeight.w800)))), Center(child: TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)))),
+
+
 
   ]))))))); */
 
@@ -775,7 +903,14 @@ class _RequestSheetDesignState extends State<_RequestSheetDesign> {
 
                           height: 54,
 
-                          child: PlantImage(url: plant.fotografiaUrl),
+                          child: PlantPhotoGallery(
+                            urls: plant.fotografias.isNotEmpty
+                                ? plant.fotografias
+                                : [
+                                    if (plant.fotografiaUrl != null)
+                                      plant.fotografiaUrl!,
+                                  ],
+                          ),
                         ),
                       ),
 
@@ -1037,6 +1172,39 @@ class _AdviceBox extends StatelessWidget {
   );
 }
 
+class PlantPhotoGallery extends StatefulWidget {
+  final List<String> urls;
+  const PlantPhotoGallery({super.key, required this.urls});
+  @override
+  State<PlantPhotoGallery> createState() => _PlantPhotoGalleryState();
+}
+
+class _PlantPhotoGalleryState extends State<PlantPhotoGallery> {
+  int _index = 0;
+  @override
+  Widget build(BuildContext context) {
+    if (widget.urls.isEmpty) return const PlantImage(url: null);
+    return Stack(
+      children: [
+        PageView.builder(
+          key: ValueKey(widget.urls.join('|')),
+          itemCount: widget.urls.length,
+          onPageChanged: (index) => setState(() => _index = index),
+          itemBuilder: (_, index) => PlantImage(url: widget.urls[index]),
+        ),
+        Positioned(
+          bottom: 12,
+          right: 12,
+          child: _StatusChip(
+            label:
+                '${(_index < widget.urls.length ? _index : 0) + 1} / ${widget.urls.length} · Desliza',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _Gallery extends StatelessWidget {
   final PlantModel plant;
 
@@ -1063,7 +1231,11 @@ class _Gallery extends StatelessWidget {
 
           width: double.infinity,
 
-          child: PlantImage(url: plant.fotografiaUrl),
+          child: PlantPhotoGallery(
+            urls: plant.fotografias.isNotEmpty
+                ? plant.fotografias
+                : [if (plant.fotografiaUrl != null) plant.fotografiaUrl!],
+          ),
         ),
       ),
 

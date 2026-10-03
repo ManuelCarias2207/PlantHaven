@@ -93,6 +93,15 @@ class PlantService {
         .toList();
   }
 
+  Future<PlantModel> GetPlant(int id) async {
+    final response = await _apiService.Get('/api/plantas/$id');
+    final body = _parseBody(response);
+    if (response.statusCode != 200) {
+      throw _createException(response.statusCode, body);
+    }
+    return PlantModel.fromJson(body);
+  }
+
   Future<PlantModel> GetMyPlant(int id) async {
     final response = await _apiService.Get('/api/plantas/mias/$id');
     final body = _parseBody(response);
