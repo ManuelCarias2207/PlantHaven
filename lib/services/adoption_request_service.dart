@@ -14,7 +14,9 @@ class AdoptionRequestService {
     required int plantId,
     required String reason,
   }) async {
-    debugPrint('[AdoptionRequestService] POST ${ApiConfig.requestsPath} body: {id_planta: $plantId, mensaje: ${reason.length} caracteres}');
+    debugPrint(
+      '[AdoptionRequestService] POST ${ApiConfig.requestsPath} body: {id_planta: $plantId, mensaje: ${reason.length} caracteres}',
+    );
     final payload = {'id_planta': plantId, 'mensaje': reason};
     var response = await _api.Post(ApiConfig.requestsPath, body: payload);
     if (response.statusCode == 307 || response.statusCode == 308) {
@@ -26,9 +28,13 @@ class AdoptionRequestService {
         response = await _api.Post(path, body: payload);
       }
     }
-    debugPrint('[AdoptionRequestService] POST respuesta: ${response.statusCode} ${response.body}');
+    debugPrint(
+      '[AdoptionRequestService] POST respuesta: ${response.statusCode} ${response.body}',
+    );
     if (response.statusCode == 307 || response.statusCode == 308) {
-      debugPrint('[AdoptionRequestService] Redirección recibida: ${response.headers['location']}');
+      debugPrint(
+        '[AdoptionRequestService] Redirección recibida: ${response.headers['location']}',
+      );
     }
     final body = _decode(response.body);
     if (response.statusCode != 200 && response.statusCode != 201)
@@ -41,7 +47,11 @@ class AdoptionRequestService {
   Future<List<AdoptionRequest>> mine() => _list(ApiConfig.myRequestsPath);
 
   Future<List<AdoptionRequest>> _list(String path) async {
+    debugPrint('[AdoptionRequestService] GET $path');
     final response = await _api.Get(path);
+    debugPrint(
+      '[AdoptionRequestService] GET respuesta: ${response.statusCode}',
+    );
     final body = _decode(response.body);
     if (response.statusCode != 200)
       throw Exception(

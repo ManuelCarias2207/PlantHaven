@@ -28,6 +28,9 @@ class AdoptionRequest {
         : (json['usuario'] is Map<String, dynamic>
               ? json['usuario'] as Map<String, dynamic>
               : <String, dynamic>{});
+    final donor = json['donante'] is Map<String, dynamic>
+        ? json['donante'] as Map<String, dynamic>
+        : <String, dynamic>{};
     return AdoptionRequest(
       id: _int(json['id_solicitud'] ?? json['solicitud_id'] ?? json['id']),
       plantId: _int(
@@ -38,7 +41,12 @@ class AdoptionRequest {
       ),
       plantName: _string(json['nombre_planta'] ?? plant['nombre']),
       adopterName: _string(
-        json['nombre_adoptante'] ?? adopter['nombre'] ?? adopter['name'],
+        json['nombre_adoptante'] ??
+            json['nombre_donante'] ??
+            adopter['nombre'] ??
+            adopter['name'] ??
+            donor['nombre'] ??
+            donor['name'],
       ),
       adopterEmail: _string(
         json['correo_adoptante'] ?? adopter['correo'] ?? adopter['email'],

@@ -5,11 +5,13 @@ import 'package:flutter_app/controllers/auth_controller.dart';
 import 'package:flutter_app/controllers/plant_controller.dart';
 import 'package:flutter_app/controllers/adoption_request_controller.dart';
 import 'package:flutter_app/injection_container.dart';
+import 'package:flutter_app/services/local_chat_store.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await LocalChatStore.initialize();
 
   // Capturar errores no manejados para mostrarlos en pantalla
   FlutterError.onError = (FlutterErrorDetails details) {

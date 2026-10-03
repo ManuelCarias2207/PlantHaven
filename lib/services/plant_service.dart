@@ -65,14 +65,19 @@ class PlantService {
   }
 
   Future<List<PlantModel>> GetMyPlants() async {
-    final response = await _apiService.Get('/api/plantas/mias');
+    const path = '/api/plantas/mias/';
+    debugPrint('[PlantService] GET MIS PLANTAS: ${ApiConfig.baseUrl}$path');
+    final response = await _apiService.Get(path);
+    debugPrint(
+      '[PlantService] GET MIS PLANTAS respuesta: ${response.statusCode}',
+    );
     final decoded = jsonDecode(response.body);
     if (response.statusCode != 200) {
       throw _createException(response.statusCode, _asMap(decoded));
     }
 
-    final list = decoded is List ? decoded : (_asMap(decoded)['items'] ?? []);
-    return (list as List)
+    final list = _extractList(decoded);
+    return list
         .whereType<Map<String, dynamic>>()
         .map(PlantModel.fromJson)
         .toList();
