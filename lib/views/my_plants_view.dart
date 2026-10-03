@@ -89,16 +89,28 @@ class _MyPlantsViewState extends State<MyPlantsView> {
                     margin: const EdgeInsets.only(bottom: 14),
                     child: ListTile(
                       contentPadding: const EdgeInsets.all(12),
-                      leading: PlantImage(url: plant.fotografiaUrl),
+                      leading: SizedBox(
+                        width: 56,
+                        height: 56,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: PlantImage(url: plant.fotografiaUrl),
+                        ),
+                      ),
                       title: Text(
                         plant.nombre,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(
                         '${plant.estadoPlanta}${plant.eliminada ? ' · Retirada' : ''}\n${plant.ubicacion}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       isThreeLine: true,
                       trailing: PopupMenuButton<String>(
+                        tooltip: 'Editar o retirar publicación',
                         enabled: canEdit,
                         onSelected: (value) {
                           if (value == 'edit') {
