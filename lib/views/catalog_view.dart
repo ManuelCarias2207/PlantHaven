@@ -100,8 +100,9 @@ class _CatalogViewState extends State<CatalogView> {
           style: GoogleFonts.inter(fontWeight: FontWeight.w800),
         ),
         actions: [
-          IconButton(
+          TextButton.icon(
             icon: const Icon(Icons.inventory_2_outlined),
+            label: const Text('Mis publicaciones'),
             onPressed: () => context.push(AppRoutes.myPublications),
           ),
           IconButton(
@@ -220,7 +221,11 @@ class _CatalogViewState extends State<CatalogView> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Icon(Icons.swap_vert, size: 18, color: AppColors.accent),
+                    const Icon(
+                      Icons.swap_vert,
+                      size: 18,
+                      color: AppColors.accent,
+                    ),
                     const Text(
                       'Recientes',
                       style: TextStyle(
