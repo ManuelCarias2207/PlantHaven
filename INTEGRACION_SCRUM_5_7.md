@@ -28,12 +28,13 @@ cadena, cuyo último commit es 4bc2c32; el merge conserva toda su historia.
   por Krisler: comprobación conjunta con SCRUM-5 completada.
 - SCRUM-6: implementadas edición, retiro con confirmación, detalle, fecha, filtros
   por estado/ID de planta y páginas de 20 solicitudes. Solo las pendientes ofrecen
-  acciones; la API comprueba otra vez el estado al guardar. Pendiente confirmar
-  estas nuevas funciones en teléfonos. No requiere un despliegue nuevo del backend.
+  acciones; la API comprueba otra vez el estado al guardar. Pruebas manuales
+  confirmadas por Krisler; SCRUM-6 completado. No requiere un despliegue nuevo del backend.
 - SCRUM-10: filtros de tamaño y cuidado y paginación real del servidor;
   el catálogo recibido filtra ubicación/categoría y muestra progresivamente
   una sola respuesta de la API.
-- SCRUM-11: revisar todas las fotos y actualización del detalle desde el servidor.
+- SCRUM-11: implementados galería y detalle actualizado por ID. Pruebas de detalle
+  confirmadas; falta comprobar varias fotos reales con el formulario ampliado.
 - SCRUM-8: conectar chat real con la API; el almacenamiento local no cumple
   comunicación entre participantes ni autorización de chat.
 
@@ -48,3 +49,11 @@ o rechazada no debe ofrecer editar/retirar. Si el donante acepta mientras el
 adoptante escribe, guardar debe mostrar un error y refrescar el estado sin alterar
 la adopción. Pedir otra vez la misma planta tras retirar una pendiente sigue
 permitido mientras la planta esté disponible.
+
+## Fotografías múltiples
+
+Publicar y editar permiten agregar imágenes de galería o cámara, hasta cinco,
+con vista previa y eliminación de la selección antes de guardar. La primera es
+la principal. Editar conserva las URLs elegidas y envía las fotos nuevas en una
+sola solicitud, manteniendo al menos una. Primero desplegar el backend con soporte
+multipart múltiple; después generar e instalar la APK. Pendiente prueba en teléfono.

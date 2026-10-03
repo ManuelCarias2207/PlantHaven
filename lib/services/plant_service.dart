@@ -115,13 +115,22 @@ class PlantService {
     PlantRequest request, {
     List<int>? imageBytes,
     String? imageName,
+    List<({List<int> bytes, String name})>? photos,
+    List<String>? keepPhotos,
   }) async {
     try {
       final payload = request.toJson();
       debugPrint(
         '[PlantService] POST /api/plantas/ payload: ${jsonEncode(payload)}',
       );
-      final response = imageBytes == null
+      final response = photos != null
+          ? await _apiService.UploadPhotosMultipart(
+              'POST',
+              '/api/plantas/',
+              fields: payload.map((key, value) => MapEntry(key, '$value')),
+              photos: photos,
+            )
+          : imageBytes == null
           ? await _apiService.Post('/api/plantas/', body: payload)
           : await _apiService.PostMultipart(
               '/api/plantas/',
@@ -149,12 +158,25 @@ class PlantService {
     PlantRequest request, {
     List<int>? imageBytes,
     String? imageName,
+    List<({List<int> bytes, String name})>? photos,
+    List<String>? keepPhotos,
   }) async {
     final payload = request.toJson();
     debugPrint(
       '[PlantService] PATCH /api/plantas/$id payload: ${jsonEncode(payload)}',
     );
-    final response = imageBytes == null
+    final response = photos != null || keepPhotos != null
+        ? await _apiService.UploadPhotosMultipart(
+            'PATCH',
+            '/api/plantas/$id',
+            fields: {
+              ...payload.map((key, value) => MapEntry(key, '$value')),
+              if (keepPhotos != null)
+                'conservar_fotografias': jsonEncode(keepPhotos),
+            },
+            photos: photos ?? [],
+          )
+        : imageBytes == null
         ? await _apiService.Patch('/api/plantas/$id', body: payload)
         : await _apiService.PatchMultipart(
             '/api/plantas/$id',

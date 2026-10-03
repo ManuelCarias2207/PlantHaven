@@ -50,19 +50,57 @@ class ApiService {
         .timeout(ApiConfig.requestTimeout);
   }
 
+  Future<http.Response> UploadPhotosMultipart(
+    String method,
+    String path, {
+    required Map<String, String> fields,
+    required List<({List<int> bytes, String name})> photos,
+  }) async {
+    final request = http.MultipartRequest(
+      method,
+      Uri.parse('${ApiConfig.baseUrl}$path'),
+    );
+    final headers = await AuthHeaders();
+    headers.remove('Content-Type');
+    request.headers.addAll(headers);
+    request.fields.addAll(fields);
+    for (final photo in photos) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'fotografias',
+          photo.bytes,
+          filename: photo.name,
+        ),
+      );
+    }
+    return (() async {
+      final streamed = await _client.send(request);
+      return http.Response.fromStream(streamed);
+    })().timeout(const Duration(seconds: 180));
+  }
+
   Future<http.Response> PostMultipart(
     String path, {
     required Map<String, String> fields,
     List<int>? bytes,
     String? filename,
   }) async {
-    final request = http.MultipartRequest('POST', Uri.parse('${ApiConfig.baseUrl}$path'));
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('${ApiConfig.baseUrl}$path'),
+    );
     final headers = await AuthHeaders();
     headers.remove('Content-Type');
     request.headers.addAll(headers);
     request.fields.addAll(fields);
     if (bytes != null && bytes.isNotEmpty) {
-      request.files.add(http.MultipartFile.fromBytes('fotografia', bytes, filename: filename ?? 'planta.jpg'));
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'fotografia',
+          bytes,
+          filename: filename ?? 'planta.jpg',
+        ),
+      );
     }
     final streamed = await request.send().timeout(ApiConfig.requestTimeout);
     return http.Response.fromStream(streamed);
@@ -74,13 +112,22 @@ class ApiService {
     List<int>? bytes,
     String? filename,
   }) async {
-    final request = http.MultipartRequest('PATCH', Uri.parse('${ApiConfig.baseUrl}$path'));
+    final request = http.MultipartRequest(
+      'PATCH',
+      Uri.parse('${ApiConfig.baseUrl}$path'),
+    );
     final headers = await AuthHeaders();
     headers.remove('Content-Type');
     request.headers.addAll(headers);
     request.fields.addAll(fields);
     if (bytes != null && bytes.isNotEmpty) {
-      request.files.add(http.MultipartFile.fromBytes('fotografia', bytes, filename: filename ?? 'planta.jpg'));
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'fotografia',
+          bytes,
+          filename: filename ?? 'planta.jpg',
+        ),
+      );
     }
     final streamed = await request.send().timeout(ApiConfig.requestTimeout);
     return http.Response.fromStream(streamed);

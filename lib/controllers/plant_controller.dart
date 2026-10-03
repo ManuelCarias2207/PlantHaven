@@ -86,6 +86,8 @@ class PlantController extends ChangeNotifier {
     PlantRequest request, {
     List<int>? imageBytes,
     String? imageName,
+    List<({List<int> bytes, String name})>? photos,
+    List<String>? keepPhotos,
   }) async {
     _setLoading();
     try {
@@ -93,6 +95,8 @@ class PlantController extends ChangeNotifier {
         request,
         imageBytes: imageBytes,
         imageName: imageName,
+        photos: photos,
+        keepPhotos: keepPhotos,
       );
       _myPlants = [plant, ..._myPlants];
       await _refreshCatalogAfterMutation();
@@ -111,6 +115,8 @@ class PlantController extends ChangeNotifier {
     PlantRequest request, {
     List<int>? imageBytes,
     String? imageName,
+    List<({List<int> bytes, String name})>? photos,
+    List<String>? keepPhotos,
   }) async {
     _setLoading();
     try {
@@ -119,6 +125,8 @@ class PlantController extends ChangeNotifier {
         request,
         imageBytes: imageBytes,
         imageName: imageName,
+        photos: photos,
+        keepPhotos: keepPhotos,
       );
       _myPlants = _myPlants
           .map((item) => item.idPlanta == id ? plant : item)

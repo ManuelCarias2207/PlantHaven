@@ -45,7 +45,10 @@ class _PlantFormViewState extends State<PlantFormView> {
   int? _categoryId;
   String? _size;
   String? _health;
-  XFile? _selectedImage;
+  final List<({List<int> bytes, String name})> _selectedImages = [];
+  final List<String> _keptPhotos = [];
+  bool _picking = false;
+  int get _photoCount => _selectedImages.length + _keptPhotos.length;
   PlantModel? _editingPlant;
   bool _preparing = true;
 
@@ -89,6 +92,11 @@ class _PlantFormViewState extends State<PlantFormView> {
     _categoryId = plant.idCategoria;
     _size = plant.tamano;
     _health = plant.estadoSalud;
+    _keptPhotos.addAll(
+      plant.fotografias.isNotEmpty
+          ? plant.fotografias
+          : [if (plant.fotografiaUrl != null) plant.fotografiaUrl!],
+    );
   }
 
   @override
@@ -103,6 +111,7 @@ class _PlantFormViewState extends State<PlantFormView> {
   }
 
   Future<void> _chooseImage() async {
+    if (_picking || _photoCount >= 5) return;
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       builder: (context) => SafeArea(
@@ -123,34 +132,62 @@ class _PlantFormViewState extends State<PlantFormView> {
       ),
     );
     if (source == null) return;
+    if (!mounted) return;
+    setState(() => _picking = true);
     try {
-      final image = await _picker.pickImage(
-        source: source,
-        imageQuality: 85,
-        maxWidth: 2000,
-        maxHeight: 2000,
-      );
-      if (image != null && await image.length() > 8 * 1024 * 1024) {
-        if (mounted) _showError('La fotografía no debe superar 8 MB.');
+      final List<XFile> images;
+      if (source == ImageSource.gallery) {
+        images = await _picker.pickMultiImage(
+          imageQuality: 85,
+          maxWidth: 2000,
+          maxHeight: 2000,
+        );
+      } else {
+        final image = await _picker.pickImage(
+          source: source,
+          imageQuality: 85,
+          maxWidth: 2000,
+          maxHeight: 2000,
+        );
+        images = [?image];
+      }
+      if (!mounted) return;
+      if (images.length + _photoCount > 5) {
+        _showError(
+          'Puedes tener hasta cinco fotos. Selecciona menos imágenes.',
+        );
         return;
       }
-      if (mounted && image != null) setState(() => _selectedImage = image);
+      final selected = <({List<int> bytes, String name})>[];
+      for (final image in images) {
+        if (await image.length() > 8 * 1024 * 1024) {
+          if (mounted) {
+            _showError('Cada fotografía debe pesar como máximo 8 MB.');
+          }
+          return;
+        }
+        selected.add((bytes: await image.readAsBytes(), name: image.name));
+      }
+      if (mounted) setState(() => _selectedImages.addAll(selected));
     } catch (_) {
       if (mounted) {
         _showError(
-          'No se pudo abrir la foto. Revisa los permisos de cámara o galería.',
+          'No se pudieron abrir las fotos. Revisa los permisos de cámara o galería.',
         );
       }
+    } finally {
+      if (mounted) setState(() => _picking = false);
     }
   }
 
   Future<void> _submit() async {
+    if (_picking || context.read<PlantController>().isLoading) return;
     if (!_formKey.currentState!.validate()) return;
     if (_categoryId == null || _size == null || _health == null) {
       _showError('Completa los selectores obligatorios.');
       return;
     }
-    if (!_isEditing && _selectedImage == null) {
+    if (!_isEditing && _photoCount == 0) {
       _showError('Agrega una foto principal para continuar.');
       return;
     }
@@ -158,9 +195,7 @@ class _PlantFormViewState extends State<PlantFormView> {
       _showError('Solo puedes editar plantas disponibles.');
       return;
     }
-    if (_isEditing &&
-        _selectedImage == null &&
-        (_editingPlant?.fotografiaUrl?.isEmpty ?? true)) {
+    if (_isEditing && _photoCount == 0) {
       _showError('La publicación debe conservar al menos una fotografía.');
       return;
     }
@@ -177,21 +212,14 @@ class _PlantFormViewState extends State<PlantFormView> {
       descripcion: _descriptionController.text.trim(),
     );
     final plants = context.read<PlantController>();
-    final imageBytes = _selectedImage == null
-        ? null
-        : await _selectedImage!.readAsBytes();
     final result = _isEditing
         ? await plants.updatePlant(
             widget.plantId!,
             request,
-            imageBytes: imageBytes,
-            imageName: _selectedImage?.name,
+            photos: List.of(_selectedImages),
+            keepPhotos: List.of(_keptPhotos),
           )
-        : await plants.createPlant(
-            request,
-            imageBytes: imageBytes,
-            imageName: _selectedImage?.name,
-          );
+        : await plants.createPlant(request, photos: List.of(_selectedImages));
     if (!mounted) return;
     if (result == null) {
       _showError(plants.friendlyError());
@@ -533,83 +561,80 @@ class _PlantFormViewState extends State<PlantFormView> {
   );
 
   Widget _photoSection() {
+    final busy = _picking || context.watch<PlantController>().isLoading;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Text(
-              'Foto principal',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(width: 8),
-            _badge('REQUERIDA'),
-          ],
+        Text(
+          'Fotografías ($_photoCount/5)',
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 10),
-        Container(
-          height: 190,
-          width: double.infinity,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: AppColors.fieldBackground,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: _selectedImage == null
-              ? (_editingPlant?.fotografiaUrl?.isNotEmpty == true
-                    ? Image.network(
-                        _editingPlant!.fotografiaUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, error, stack) => const Center(
-                          child: Text('No se pudo cargar la foto actual.'),
-                        ),
-                      )
-                    : InkWell(
-                        onTap: _chooseImage,
-                        child: const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.add_a_photo_outlined,
-                              size: 42,
-                              color: AppColors.accent,
-                            ),
-                            SizedBox(height: 8),
-                            Text('Agrega una foto clara de tu planta'),
-                          ],
-                        ),
-                      ))
-              : FutureBuilder<Uint8List>(
-                  future: _selectedImage!.readAsBytes(),
-                  builder: (_, snapshot) => snapshot.hasData
-                      ? Image.memory(snapshot.data!, fit: BoxFit.cover)
-                      : const Center(child: CircularProgressIndicator()),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (int i = 0; i < _keptPhotos.length; i++)
+              _photoTile(
+                Image.network(
+                  _keptPhotos[i],
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, error, stack) =>
+                      const Center(child: Icon(Icons.broken_image)),
                 ),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            OutlinedButton.icon(
-              onPressed: _chooseImage,
-              icon: const Icon(Icons.photo_camera_outlined),
-              label: Text(
-                _selectedImage == null ? 'Cargar foto' : 'Cambiar foto',
+                i,
+                busy ? null : () => setState(() => _keptPhotos.removeAt(i)),
               ),
-            ),
-            if (_selectedImage != null)
-              IconButton(
-                tooltip: 'Eliminar foto',
-                onPressed: () => setState(() => _selectedImage = null),
-                icon: const Icon(Icons.delete_outline, color: AppColors.error),
+            for (int i = 0; i < _selectedImages.length; i++)
+              _photoTile(
+                Image.memory(
+                  Uint8List.fromList(_selectedImages[i].bytes),
+                  fit: BoxFit.cover,
+                ),
+                _keptPhotos.length + i,
+                busy ? null : () => setState(() => _selectedImages.removeAt(i)),
               ),
           ],
         ),
-        const SizedBox(height: 6),
+        OutlinedButton.icon(
+          onPressed: busy || _photoCount >= 5 ? null : _chooseImage,
+          icon: const Icon(Icons.add_a_photo_outlined),
+          label: Text(_picking ? 'Leyendo fotos...' : 'Agregar fotos'),
+        ),
         const Text(
-          'Usa luz natural y evita fotos oscuras o borrosas.',
+          'De una a cinco fotos. La primera será la principal. Los cambios se aplican al guardar.',
           style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
       ],
     );
   }
+
+  Widget _photoTile(Widget image, int index, VoidCallback? remove) => SizedBox(
+    width: 120,
+    height: 130,
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        ClipRRect(borderRadius: BorderRadius.circular(12), child: image),
+        Positioned(
+          bottom: 0,
+          left: 0,
+          child: Container(
+            color: Colors.white,
+            padding: const EdgeInsets.all(3),
+            child: Text(index == 0 ? 'Principal' : 'Foto ${index + 1}'),
+          ),
+        ),
+        Positioned(
+          top: 0,
+          right: 0,
+          child: IconButton.filled(
+            tooltip: 'Quitar foto ${index + 1}',
+            onPressed: remove,
+            icon: const Icon(Icons.close),
+          ),
+        ),
+      ],
+    ),
+  );
 }
