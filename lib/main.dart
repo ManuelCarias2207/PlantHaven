@@ -3,24 +3,25 @@ import 'package:flutter_app/core/constants/app_colors.dart';
 import 'package:flutter_app/core/routes/app_router.dart';
 import 'package:flutter_app/controllers/auth_controller.dart';
 import 'package:flutter_app/controllers/plant_controller.dart';
+import 'package:flutter_app/controllers/adoption_request_controller.dart';
 import 'package:flutter_app/injection_container.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Capturar errores no manejados para mostrarlos en pantalla
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
   };
-  
+
   try {
     await initDependencies();
   } catch (e) {
     debugPrint('Error initializing dependencies: $e');
   }
-  
+
   runApp(const PlantHavenApp());
 }
 
@@ -31,12 +32,9 @@ class PlantHavenApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(
-          create: (_) => sl<AuthController>(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => sl<PlantController>(),
-        ),
+        ChangeNotifierProvider(create: (_) => sl<AuthController>()),
+        ChangeNotifierProvider(create: (_) => sl<PlantController>()),
+        ChangeNotifierProvider(create: (_) => sl<AdoptionRequestController>()),
       ],
       child: MaterialApp.router(
         title: 'PlantHaven',
@@ -77,10 +75,7 @@ class PlantHavenApp extends StatelessWidget {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(
-                color: AppColors.accent,
-                width: 1.5,
-              ),
+              borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
             ),
           ),
         ),

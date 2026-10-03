@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/constants/app_colors.dart';
+import 'package:flutter_app/controllers/adoption_request_controller.dart';
+import 'package:flutter_app/models/adoption_request_model.dart';
 import 'package:flutter_app/models/plant_model.dart';
 import 'package:flutter_app/views/catalog_view.dart';
+import 'package:flutter_app/views/adoption_success_view.dart';
+import 'package:provider/provider.dart';
 
 class PlantDetailView extends StatefulWidget {
   final PlantModel plant;
@@ -15,6 +19,7 @@ class _PlantDetailViewState extends State<PlantDetailView> {
   bool _favorite = false;
   bool _requestSent = false;
   bool _notificationsEnabled = false;
+  AdoptionRequest? _submittedRequest;
 
   PlantModel get plant => widget.plant;
   bool get _isAvailable => plant.estadoPlanta.toUpperCase() == 'DISPONIBLE';
@@ -31,6 +36,30 @@ class _PlantDetailViewState extends State<PlantDetailView> {
       plant.estadoSalud.isEmpty ? 'No indicada' : plant.estadoSalud;
   String get _location =>
       plant.ubicacion.isEmpty ? 'No indicada' : plant.ubicacion;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadExistingRequest());
+  }
+
+  Future<void> _loadExistingRequest() async {
+    final controller = context.read<AdoptionRequestController>();
+    await controller.loadMine();
+    if (!mounted) return;
+    AdoptionRequest? existing;
+    for (final item in controller.myRequests) {
+      if (item.plantId == plant.idPlanta) {
+        existing = item;
+        break;
+      }
+    }
+    if (existing != null)
+      setState(() {
+        _submittedRequest = existing;
+        _requestSent = true;
+      });
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -69,9 +98,7 @@ class _PlantDetailViewState extends State<PlantDetailView> {
             _notificationsEnabled
                 ? Icons.notifications_active
                 : Icons.notifications_none,
-            color: _notificationsEnabled
-                ? AppColors.accent
-                : AppColors.primary,
+            color: _notificationsEnabled ? AppColors.accent : AppColors.primary,
           ),
           onPressed: () {
             setState(() => _notificationsEnabled = !_notificationsEnabled);
@@ -96,7 +123,7 @@ class _PlantDetailViewState extends State<PlantDetailView> {
           : _isAvailable
           ? 'Solicitar adopción  →'
           : 'No disponible para adopción',
-      onPressed: _requestAdoption,
+      onPressed: _requestAdoptionRemote,
     ),
     body: SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
@@ -242,6 +269,15 @@ class _PlantDetailViewState extends State<PlantDetailView> {
             description: 'La información mostrada corresponde a los datos públicos de esta publicación.',
           ),
           const _StatusLegend(),
+          if (_submittedRequest != null)
+            Align(
+              alignment: Alignment.center,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.chat_bubble_outline),
+                label: const Text('Mensajes'),
+                onPressed: () => _openChatPlaceholder(_submittedRequest!),
+              ),
+            ),
         ],
       ),
     ),
@@ -261,6 +297,57 @@ class _PlantDetailViewState extends State<PlantDetailView> {
       ),
     ],
   );
+  Future<void> _requestAdoptionRemote() async {
+    if (!_isAvailable || _requestSent) return;
+    final reason = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _RequestSheetDesign(plant: plant),
+    );
+    if (!mounted || reason == null || reason.trim().isEmpty) return;
+    final controller = context.read<AdoptionRequestController>();
+    final request = await controller.create(
+      plantId: plant.idPlanta,
+      reason: reason.trim(),
+    );
+    if (!mounted) return;
+    if (request == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.black87,
+          content: const Text('Exception: No se pudo enviar la solicitud.'),
+        ),
+      );
+      return;
+    }
+    setState(() {
+      _requestSent = true;
+      _submittedRequest = request;
+    });
+    await Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AdoptionSuccessView(plantName: plant.nombre),
+      ),
+    );
+    return;
+    /* await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.check_circle, color: AppColors.accent, size: 48),
+        title: const Text('¡Solicitud enviada!'),
+        content: const Text('El donante recibió tu motivo de adopción.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
+    ); */
+  }
+
   void _requestAdoption() {
     if (!_isAvailable || _requestSent) return;
     setState(() => _requestSent = true);
@@ -268,6 +355,349 @@ class _PlantDetailViewState extends State<PlantDetailView> {
       const SnackBar(content: Text('Tu solicitud de adopción fue enviada.')),
     );
   }
+
+  void _openChatPlaceholder(AdoptionRequest request) {
+    // TODO: navegar al chat con request_id, plant_id y datos básicos del otro usuario.
+    // request.id, request.plantId, request.adopterName y request.adopterEmail están disponibles.
+  }
+}
+
+class _RequestSheet extends StatefulWidget {
+  const _RequestSheet();
+  @override
+  State<_RequestSheet> createState() => _RequestSheetState();
+}
+
+class _RequestSheetState extends State<_RequestSheet> {
+  final _controller = TextEditingController();
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.fromLTRB(
+      20,
+      0,
+      20,
+      MediaQuery.viewInsetsOf(context).bottom + 20,
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Solicitar adopción',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Cuéntale al donante por qué te gustaría darle un hogar a esta planta.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _controller,
+          maxLength: 500,
+          maxLines: 5,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Escribe tu motivo de adopción...',
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: FilledButton(
+            onPressed: () => Navigator.pop(context, _controller.text),
+            child: const Text('Confirmar solicitud'),
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
+    ),
+  );
+}
+
+/* class _RequestSheetV2 extends StatefulWidget {
+  final PlantModel plant;
+  const _RequestSheetV2({required this.plant});
+  @override State<_RequestSheetV2> createState() => _RequestSheetV2State();
+}
+
+class _RequestSheetV2State extends State<_RequestSheetV2> {
+  final _controller = TextEditingController();
+  @override void dispose() { _controller.dispose(); super.dispose(); }
+  @override Widget build(BuildContext context) => Material(color: AppColors.background, child: SafeArea(child: Padding(padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.viewInsetsOf(context).bottom + 16), child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Row(children: [IconButton(icon: const Icon(Icons.close, color: AppColors.primary), onPressed: () => Navigator.pop(context)), const Expanded(child: Center(child: Text('Solicitar adopción', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)))), const CircleAvatar(radius: 18, backgroundColor: AppColors.primary, child: Icon(Icons.spa_outlined, color: Colors.white, size: 20))]),
+    const SizedBox(height: 12),
+    Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)), child: Row(children: [ClipOval(child: SizedBox(width: 54, height: 54, child: PlantImage(url: widget.plant.fotografiaUrl))), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFFDCE9DF), borderRadius: BorderRadius.circular(12)), child: const Text('Disponible', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.primary))), const SizedBox(height: 5), Text(widget.plant.nombre, style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary)), Text('${widget.plant.categoria?.nombre ?? 'Planta'}  ·  ${widget.plant.estadoSalud.isEmpty ? 'Rescate comunitario' : widget.plant.estadoSalud}', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary))]))]),
+    const SizedBox(height: 22), const Text('¿Por qué deseas adoptar esta planta? *', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary)), const SizedBox(height: 6), const Text('Cuéntale al donante cómo la cuidarías.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)), const SizedBox(height: 10),
+    TextField(controller: _controller, maxLength: 500, maxLines: 5, decoration: const InputDecoration(hintText: 'Escribe tu mensaje aquí...', fillColor: Color(0xFFF0EFEA), filled: true, border: OutlineInputBorder(borderSide: BorderSide.none, borderRadius: BorderRadius.all(Radius.circular(14)))),),
+    const SizedBox(height: 12), Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFFEEEBE2), borderRadius: BorderRadius.circular(16)), child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(Icons.lightbulb_outline, color: AppColors.accent), SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Consejo de adopción', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary)), SizedBox(height: 4), Text('Menciona si tienes buena luz natural o experiencia previa con plantas tropicales.', style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.textSecondary))]))]),
+    const SizedBox(height: 12), const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(Icons.shield_outlined, size: 18, color: AppColors.textDisabled), SizedBox(width: 8), Expanded(child: Text('Tu solicitud será evaluada directamente por el donante. No compartiremos datos sensibles.', style: TextStyle(fontSize: 11, height: 1.4, color: AppColors.textSecondary)))]), const SizedBox(height: 18),
+    SizedBox(width: double.infinity, height: 50, child: FilledButton.icon(onPressed: () => Navigator.pop(context, _controller.text), icon: const Icon(Icons.front_hand_outlined), label: const Text('Enviar solicitud', style: TextStyle(fontWeight: FontWeight.w800)))), Center(child: TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)))),
+  ]))))))); */
+
+class _RequestSheetDesign extends StatefulWidget {
+  final PlantModel plant;
+  const _RequestSheetDesign({required this.plant});
+  @override
+  State<_RequestSheetDesign> createState() => _RequestSheetDesignState();
+}
+
+class _RequestSheetDesignState extends State<_RequestSheetDesign> {
+  final _controller = TextEditingController();
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final plant = widget.plant;
+    return Material(
+      color: AppColors.background,
+      child: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            0,
+            20,
+            MediaQuery.viewInsetsOf(context).bottom + 16,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.close, color: AppColors.primary),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    const Expanded(
+                      child: Center(
+                        child: Text(
+                          'Solicitar adopción',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const CircleAvatar(
+                      radius: 18,
+                      backgroundColor: AppColors.primary,
+                      child: Icon(
+                        Icons.spa_outlined,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Row(
+                    children: [
+                      ClipOval(
+                        child: SizedBox(
+                          width: 54,
+                          height: 54,
+                          child: PlantImage(url: plant.fotografiaUrl),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const _AvailableBadge(),
+                            const SizedBox(height: 5),
+                            Text(
+                              plant.nombre,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                            Text(
+                              plant.categoria?.nombre ?? 'Planta',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 22),
+                const Text(
+                  '¿Por qué deseas adoptar esta planta? *',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Cuéntale al donante cómo la cuidarías.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _controller,
+                  maxLength: 500,
+                  maxLines: 5,
+                  decoration: const InputDecoration(
+                    hintText: 'Escribe tu mensaje aquí...',
+                    fillColor: Color(0xFFF0EFEA),
+                    filled: true,
+                    border: OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(14)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const _AdviceBox(),
+                const SizedBox(height: 12),
+                const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.shield_outlined,
+                      size: 18,
+                      color: AppColors.textDisabled,
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Tu solicitud será evaluada directamente por el donante. No compartiremos datos sensibles.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          height: 1.4,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.pop(context, _controller.text),
+                    icon: const Icon(Icons.front_hand_outlined),
+                    label: const Text(
+                      'Enviar solicitud',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ),
+                Center(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text(
+                      'Cancelar',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AvailableBadge extends StatelessWidget {
+  const _AvailableBadge();
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: const Color(0xFFDCE9DF),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: const Text(
+      'Disponible',
+      style: TextStyle(
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
+        color: AppColors.primary,
+      ),
+    ),
+  );
+}
+
+class _AdviceBox extends StatelessWidget {
+  const _AdviceBox();
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: const Color(0xFFEEEBE2),
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: const Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.lightbulb_outline, color: AppColors.accent),
+        SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Consejo de adopción',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primary,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Menciona si tienes buena luz natural o experiencia previa con plantas tropicales.',
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.4,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _Gallery extends StatelessWidget {
