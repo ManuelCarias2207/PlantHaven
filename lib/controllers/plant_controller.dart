@@ -50,15 +50,35 @@ class PlantController extends ChangeNotifier {
     }
   }
 
-  Future<bool> loadMyPlants() async {
+  Future<bool> loadMyPlants({
+    String busqueda = '',
+    String? estado,
+    bool? retirada,
+    int pagina = 1,
+  }) async {
+    _myPlants = [];
     _setLoading();
     try {
-      _myPlants = await _plantService.GetMyPlants();
+      _myPlants = await _plantService.GetMyPlants(
+        busqueda: busqueda,
+        estado: estado,
+        retirada: retirada,
+        pagina: pagina,
+      );
       _setReady();
       return true;
     } catch (e) {
       _setFailure(e);
       return false;
+    }
+  }
+
+  Future<PlantModel?> loadMyPlant(int id) async {
+    try {
+      return await _plantService.GetMyPlant(id);
+    } catch (e) {
+      _setFailure(e);
+      return null;
     }
   }
 

@@ -73,11 +73,7 @@ class _PlantFormViewState extends State<PlantFormView> {
     await plants.loadCategories();
 
     if (_isEditing) {
-      await plants.loadMyPlants();
-      final matches = plants.myPlants
-          .where((item) => item.idPlanta == widget.plantId)
-          .toList();
-      _editingPlant = matches.isEmpty ? null : matches.first;
+      _editingPlant = await plants.loadMyPlant(widget.plantId!);
       if (_editingPlant != null) _fillForm(_editingPlant!);
     }
     if (mounted) setState(() => _preparing = false);

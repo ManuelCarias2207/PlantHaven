@@ -64,8 +64,23 @@ class PlantService {
     }
   }
 
-  Future<List<PlantModel>> GetMyPlants() async {
-    final response = await _apiService.Get('/api/plantas/mias');
+  Future<List<PlantModel>> GetMyPlants({
+    String busqueda = '',
+    String? estado,
+    bool? retirada,
+    int pagina = 1,
+    int limite = 10,
+  }) async {
+    final query = Uri(
+      queryParameters: {
+        'busqueda': busqueda.trim(),
+        'pagina': '$pagina',
+        'limite': '$limite',
+        'estado': ?estado,
+        if (retirada != null) 'retirada': '$retirada',
+      },
+    ).query;
+    final response = await _apiService.Get('/api/plantas/mias?$query');
     final decoded = jsonDecode(response.body);
     if (response.statusCode != 200) {
       throw _createException(response.statusCode, _asMap(decoded));
@@ -76,6 +91,15 @@ class PlantService {
         .whereType<Map<String, dynamic>>()
         .map(PlantModel.fromJson)
         .toList();
+  }
+
+  Future<PlantModel> GetMyPlant(int id) async {
+    final response = await _apiService.Get('/api/plantas/mias/$id');
+    final body = _parseBody(response);
+    if (response.statusCode != 200) {
+      throw _createException(response.statusCode, body);
+    }
+    return PlantModel.fromJson(body);
   }
 
   Future<PlantModel> CreatePlant(

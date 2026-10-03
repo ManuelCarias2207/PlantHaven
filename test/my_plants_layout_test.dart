@@ -15,17 +15,24 @@ class _Auth extends AuthController {
 
 class _Plants extends PlantController {
   @override
-  Future<bool> loadMyPlants() async => true;
+  Future<bool> loadMyPlants({
+    String busqueda = '',
+    String? estado,
+    bool? retirada,
+    int pagina = 1,
+  }) async => true;
 
   @override
-  List<PlantModel> get myPlants => [PlantModel.fromJson({
-    'id_planta': 1,
-    'nombre': 'Monstera deliciosa de prueba con un nombre largo',
-    'estado_planta': 'DISPONIBLE',
-    'visible': true,
-    'eliminada': false,
-    'ubicacion': 'Tepecoyo, zona central con descripción larga',
-  })];
+  List<PlantModel> get myPlants => [
+    PlantModel.fromJson({
+      'id_planta': 1,
+      'nombre': 'Monstera deliciosa de prueba con un nombre largo',
+      'estado_planta': 'DISPONIBLE',
+      'visible': true,
+      'eliminada': false,
+      'ubicacion': 'Tepecoyo, zona central con descripción larga',
+    }),
+  ];
 }
 
 void main() {
@@ -36,13 +43,15 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(MultiProvider(
-        providers: [
-          ChangeNotifierProvider<AuthController>(create: (_) => _Auth()),
-          ChangeNotifierProvider<PlantController>(create: (_) => _Plants()),
-        ],
-        child: const MaterialApp(home: MyPlantsView()),
-      ));
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AuthController>(create: (_) => _Auth()),
+            ChangeNotifierProvider<PlantController>(create: (_) => _Plants()),
+          ],
+          child: const MaterialApp(home: MyPlantsView()),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(tester.getSize(find.byType(PlantImage)), const Size(56, 56));
