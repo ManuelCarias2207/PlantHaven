@@ -24,9 +24,12 @@ cadena, cuyo último commit es 4bc2c32; el merge conserva toda su historia.
   Solicitudes recibidas, con filtros, paginación, detalle y confirmación de decisiones.
   Requiere desplegar la actualización del backend: PATCH `/api/solicitudes/{id}`
   admite `estado: ACEPTADA/RECHAZADA` además del mensaje del adoptante por separado.
-  Pendiente la prueba manual publicada para cerrar la integración con SCRUM-5.
-- SCRUM-6: completar edición y retiro de solicitudes en la interfaz y revisión
-  de paginación (el listado integrado consulta hasta 100 solicitudes).
+  Prueba manual publicada de aceptación/rechazo y rechazo automático confirmada
+  por Krisler: comprobación conjunta con SCRUM-5 completada.
+- SCRUM-6: implementadas edición, retiro con confirmación, detalle, fecha, filtros
+  por estado/ID de planta y páginas de 20 solicitudes. Solo las pendientes ofrecen
+  acciones; la API comprueba otra vez el estado al guardar. Pendiente confirmar
+  estas nuevas funciones en teléfonos. No requiere un despliegue nuevo del backend.
 - SCRUM-10: filtros de tamaño y cuidado y paginación real del servidor;
   el catálogo recibido filtra ubicación/categoría y muestra progresivamente
   una sola respuesta de la API.
@@ -35,8 +38,13 @@ cadena, cuyo último commit es 4bc2c32; el merge conserva toda su historia.
   comunicación entre participantes ni autorización de chat.
 
 No marcar estas historias como terminadas solo por integrar sus ramas.
-Catálogo, detalle, publicaciones propias y envío de solicitud con dos teléfonos
-fueron confirmados por Krisler. Ahora probar aceptación/rechazo tras desplegar
-SCRUM-7 y reinstalar la APK. La aceptación bloquea edición/retiro; otras solicitudes
-pendientes quedan rechazadas. Para verificar ese último caso hacen falta dos
-adoptantes y un donante para la misma planta.
+Catálogo, detalle, publicaciones propias, envío y aceptación/rechazo con varios
+teléfonos fueron confirmados por Krisler. La aceptación bloquea edición/retiro;
+otras solicitudes pendientes quedan rechazadas.
+
+Para probar SCRUM-6: abrir Mis solicitudes (carta), editar una pendiente, cancelar
+y luego confirmar su retiro, filtrar estado/planta y abrir detalle. Una aceptada
+o rechazada no debe ofrecer editar/retirar. Si el donante acepta mientras el
+adoptante escribe, guardar debe mostrar un error y refrescar el estado sin alterar
+la adopción. Pedir otra vez la misma planta tras retirar una pendiente sigue
+permitido mientras la planta esté disponible.

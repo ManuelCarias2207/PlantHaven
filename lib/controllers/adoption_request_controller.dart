@@ -50,13 +50,13 @@ class AdoptionRequestController extends ChangeNotifier {
     }
   }
 
-  Future<bool> loadMine() async {
+  Future<bool> loadMine({int? plantId}) async {
     _mine = [];
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
-      _mine = await _service.mine();
+      _mine = await _service.mine(plantId: plantId);
       return true;
     } catch (e) {
       _error = e.toString();

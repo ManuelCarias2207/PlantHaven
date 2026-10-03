@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_app/controllers/auth_controller.dart';
 
 import 'package:flutter_app/core/constants/app_routes.dart';
@@ -77,7 +78,7 @@ class _PlantDetailViewState extends State<PlantDetailView> {
 
     final controller = context.read<AdoptionRequestController>();
 
-    await controller.loadMine();
+    await controller.loadMine(plantId: plant.idPlanta);
 
     if (!mounted) return;
 
@@ -328,10 +329,7 @@ class _PlantDetailViewState extends State<PlantDetailView> {
 
           const SizedBox(height: 28),
 
-          _sectionTitle(
-            Icons.description_outlined,
-            'Descripción de la planta',
-          ),
+          _sectionTitle(Icons.description_outlined, 'Descripción de la planta'),
 
           const SizedBox(height: 12),
 
@@ -848,10 +846,15 @@ class _RequestSheetDesignState extends State<_RequestSheetDesign> {
                   controller: _controller,
 
                   maxLength: 500,
+                  maxLengthEnforcement: MaxLengthEnforcement.none,
+                  onChanged: (_) => setState(() {}),
 
                   maxLines: 5,
 
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
+                    errorText: _controller.text.runes.length > 500
+                        ? 'Máximo 500 caracteres.'
+                        : null,
                     hintText: 'Escribe tu mensaje aquí...',
 
                     fillColor: Color(0xFFF0EFEA),
@@ -910,7 +913,11 @@ class _RequestSheetDesignState extends State<_RequestSheetDesign> {
                   height: 50,
 
                   child: FilledButton.icon(
-                    onPressed: () => Navigator.pop(context, _controller.text),
+                    onPressed:
+                        _controller.text.trim().isEmpty ||
+                            _controller.text.runes.length > 500
+                        ? null
+                        : () => Navigator.pop(context, _controller.text.trim()),
 
                     icon: const Icon(Icons.front_hand_outlined),
 

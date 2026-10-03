@@ -9,6 +9,11 @@ class FakeApi extends ApiService {
   int status = 200;
   Map<String, dynamic>? lastBody;
   @override
+  Future<http.Response> Delete(String path) async {
+    paths.add(path);
+    return http.Response('',204);
+  }
+  @override
   Future<http.Response> Patch(String path, {Map<String, dynamic>? body}) async {
     paths.add(path); lastBody = body;
     return http.Response(jsonEncode({'id_solicitud':8,'id_planta':3,'estado':body?['estado'],'mensaje':'Tengo espacio'}),200);
@@ -27,6 +32,13 @@ class FakeApi extends ApiService {
 }
 
 void main() {
+  test('editar envía solo mensaje y retirar acepta respuesta vacía 204', () async {
+    final api=FakeApi();final service=AdoptionRequestService(apiService:api);
+    await service.edit(8,'Mensaje corregido');
+    expect(api.lastBody,{'mensaje':'Mensaje corregido'});
+    await service.withdraw(8);
+    expect(api.paths,['/api/solicitudes/8','/api/solicitudes/8']);
+  });
   test('decisión envía solo estado al PATCH compartido', () async {
     final api=FakeApi();
     final service=AdoptionRequestService(apiService:api);
@@ -39,7 +51,7 @@ void main() {
     final service = AdoptionRequestService(apiService: api);
     expect((await service.mine()).single.id, 8);
     expect((await service.received()).single.reason, 'Tengo espacio');
-    expect(api.paths, ['/api/solicitudes?tipo=enviadas&limite=100',
+    expect(api.paths, ['/api/solicitudes?tipo=enviadas&limite=100&offset=0',
       '/api/solicitudes?tipo=recibidas&limite=100&offset=0']);
   });
   test('un conflicto conserva el motivo que explica la API', () async {

@@ -74,7 +74,53 @@ class AdoptionRequestService {
     return AdoptionRequest.fromJson(_object(body));
   }
 
-  Future<List<AdoptionRequest>> mine() => _list(ApiConfig.myRequestsPath);
+  Future<List<AdoptionRequest>> mine({
+    int offset = 0,
+    int limit = 100,
+    String? estado,
+    int? plantId,
+  }) => _list(
+    Uri(
+      path: ApiConfig.requestsPath,
+      queryParameters: {
+        'tipo': 'enviadas',
+        'limite': '$limit',
+        'offset': '$offset',
+        'estado': ?estado,
+        if (plantId != null) 'id_planta': '$plantId',
+      },
+    ).toString(),
+  );
+
+  Future<AdoptionRequest> edit(int id, String message) async {
+    final response = await _api.Patch(
+      '${ApiConfig.requestsPath}/$id',
+      body: {'mensaje': message},
+    );
+    final body = _decode(response.body);
+    if (response.statusCode != 200) {
+      throw Exception(_error(body, 'No se pudo editar la solicitud.'));
+    }
+    return AdoptionRequest.fromJson(_object(body));
+  }
+
+  Future<void> withdraw(int id) async {
+    final response = await _api.Delete('${ApiConfig.requestsPath}/$id');
+    if (response.statusCode != 204) {
+      throw Exception(
+        _error(_decode(response.body), 'No se pudo retirar la solicitud.'),
+      );
+    }
+  }
+
+  String _error(dynamic body, String fallback) {
+    final detail = body is Map ? body['detail'] : null;
+    if (detail is String) return detail;
+    if (detail is List) {
+      return detail.map((e) => e is Map ? e['msg'] : e).join('. ');
+    }
+    return fallback;
+  }
 
   Future<List<AdoptionRequest>> _list(String path) async {
     debugPrint('[AdoptionRequestService] GET $path');
