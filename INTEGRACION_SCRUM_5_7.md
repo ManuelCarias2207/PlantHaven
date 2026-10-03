@@ -30,11 +30,11 @@ cadena, cuyo último commit es 4bc2c32; el merge conserva toda su historia.
   por estado/ID de planta y páginas de 20 solicitudes. Solo las pendientes ofrecen
   acciones; la API comprueba otra vez el estado al guardar. Pruebas manuales
   confirmadas por Krisler; SCRUM-6 completado. No requiere un despliegue nuevo del backend.
-- SCRUM-10: filtros de tamaño y cuidado y paginación real del servidor;
-  el catálogo recibido filtra ubicación/categoría y muestra progresivamente
-  una sola respuesta de la API.
-- SCRUM-11: implementados galería y detalle actualizado por ID. Pruebas de detalle
-  confirmadas; falta comprobar varias fotos reales con el formulario ampliado.
+- SCRUM-10: implementados filtros combinados de tamaño, cuidado, categoría,
+  ubicación y nombre, cuadrícula y carga automática de páginas de 12 desde la API.
+  Las opciones proceden de todas las publicaciones disponibles, no solo la primera
+  página. Pendiente comprobar en teléfono tras desplegar la API.
+- SCRUM-11: detalle y fotografías confirmados por Krisler; completado.
 - SCRUM-8: conectar chat real con la API; el almacenamiento local no cumple
   comunicación entre participantes ni autorización de chat.
 

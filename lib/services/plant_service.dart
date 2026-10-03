@@ -37,6 +37,21 @@ class PlantService {
         .toList();
   }
 
+  Future<Map<String, dynamic>> GetCatalogPage({
+    int page = 1,
+    Map<String, String> filters = const {},
+  }) async {
+    final query = Uri(
+      queryParameters: {'pagina': '$page', 'limite': '12', ...filters},
+    ).query;
+    final response = await _apiService.Get('/api/plantas?$query');
+    final body = _parseBody(response);
+    if (response.statusCode != 200) {
+      throw _createException(response.statusCode, body);
+    }
+    return body;
+  }
+
   Future<List<PlantModel>> GetCatalog() async {
     final url = '${ApiConfig.baseUrl}${ApiConfig.plantsPath}';
 

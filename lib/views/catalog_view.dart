@@ -1,7 +1,9 @@
+import 'dart:async';
+
+import 'package:flutter_app/services/plant_service.dart';
 import 'package:flutter_app/views/my_requests_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_app/controllers/auth_controller.dart';
-import 'package:flutter_app/controllers/plant_controller.dart';
 import 'package:flutter_app/core/config/api_config.dart';
 import 'package:flutter_app/core/constants/app_colors.dart';
 import 'package:flutter_app/core/constants/app_routes.dart';
@@ -36,7 +38,8 @@ import 'package:provider/provider.dart';
 }*/
 
 class CatalogView extends StatefulWidget {
-  const CatalogView({super.key});
+  final PlantService? service;
+  const CatalogView({super.key, this.service});
   @override
   State<CatalogView> createState() => _CatalogViewState();
 }
@@ -47,8 +50,14 @@ class _CatalogViewState extends State<CatalogView> {
   final Set<int> _favoriteIds = <int>{};
   String _location = 'Todas las ubicaciones';
   String _category = 'Todas las plantas';
-  int _shownCount = 6;
-  bool _isLoadingMore = false;
+  String _size = 'Todos los tamaños', _care = 'Todos los cuidados';
+  List<PlantModel> _items = [];
+  Map<String, List<String>> _options = {};
+  int _page = 0, _total = 0, _generation = 0;
+  bool _loading = false, _more = false;
+  String? _error;
+  Timer? _debounce;
+  late final PlantService _service = widget.service ?? PlantService();
 
   @override
   void initState() {
@@ -58,45 +67,84 @@ class _CatalogViewState extends State<CatalogView> {
   }
 
   Future<void> _prepare() async {
-    final auth = context.read<AuthController>();
-    if (!await auth.ensureAuthenticated()) {
+    if (!await context.read<AuthController>().ensureAuthenticated()) {
       if (mounted) context.go(AppRoutes.login);
       return;
     }
-    if (mounted) await context.read<PlantController>().loadCatalog();
+    if (mounted) await _load();
   }
 
-  List<PlantModel> _filtered(List<PlantModel> source) {
-    final query = _searchController.text.trim().toLowerCase();
-    return source.where((plant) {
-      final category = plant.categoria?.nombre ?? 'Sin categoría';
-      return plant.estadoPlanta.toUpperCase() == 'DISPONIBLE' &&
-          (query.isEmpty || plant.nombre.toLowerCase().contains(query)) &&
-          (_location == 'Todas las ubicaciones' ||
-              plant.ubicacion == _location) &&
-          (_category == 'Todas las plantas' || category == _category);
-    }).toList();
+  Future<void> _load({bool more = false}) async {
+    if (!mounted) return;
+    if (more && (_loading || !_more || _error != null)) return;
+    final generation = more ? _generation : ++_generation;
+    final page = more ? _page + 1 : 1;
+    setState(() {
+      _loading = true;
+      _error = null;
+      if (!more) {
+        _items = [];
+        _more = false;
+      }
+    });
+    try {
+      final data = await _service.GetCatalogPage(
+        page: page,
+        filters: {
+          if (_searchController.text.trim().isNotEmpty)
+            'busqueda': _searchController.text.trim(),
+          if (_location != 'Todas las ubicaciones') 'ubicacion': _location,
+          if (_category != 'Todas las plantas') 'categoria': _category,
+          if (_size != 'Todos los tamaños') 'tamano': _size,
+          if (_care != 'Todos los cuidados') 'nivel_cuidado': _care,
+        },
+      );
+      if (!mounted || generation != _generation) return;
+      final incoming = (data['plantas'] as List)
+          .map((p) => PlantModel.fromJson(p))
+          .toList();
+      setState(() {
+        final merged = more ? [..._items, ...incoming] : incoming;
+        _items = {for (final p in merged) p.idPlanta: p}.values.toList();
+        _page = page;
+        _total = data['total'] as int;
+        _more = data['hay_mas'] as bool? ?? page * 12 < _total;
+        _options = (data['filtros'] as Map? ?? {}).map(
+          (k, v) => MapEntry(k.toString(), (v as List).cast<String>()),
+        );
+      });
+    } catch (_) {
+      if (mounted && generation == _generation) {
+        setState(
+          () => _error = 'No se pudo cargar el catálogo. Comprueba tu conexión y reintenta.',
+        );
+      }
+    } finally {
+      if (mounted && generation == _generation) {
+        setState(() => _loading = false);
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _loadMoreWhenNeeded(),
+        );
+      }
+    }
   }
 
   void _loadMoreWhenNeeded() {
-    final plants = _filtered(context.read<PlantController>().plants);
-    if (_scrollController.position.pixels >
-            _scrollController.position.maxScrollExtent - 500 &&
-        !_isLoadingMore &&
-        _shownCount < plants.length) {
-      setState(() => _isLoadingMore = true);
-      Future<void>.delayed(const Duration(milliseconds: 500), () {
-        if (!mounted) return;
-        setState(() {
-          _shownCount += 6;
-          _isLoadingMore = false;
-        });
-      });
-    }
+    if (!mounted || !_scrollController.hasClients) return;
+    if (_scrollController.position.extentAfter < 400) _load(more: true);
+  }
+
+  void _searchChanged(String value) {
+    _debounce?.cancel();
+    ++_generation;
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      if (mounted) _load();
+    });
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -104,24 +152,18 @@ class _CatalogViewState extends State<CatalogView> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<PlantController>();
-    final plants = _filtered(controller.plants);
-    final visiblePlants = plants.take(_shownCount).toList();
-    final locations = [
+    final plants = _items;
+    final visiblePlants = plants;
+    final locations = {
       'Todas las ubicaciones',
-      ...controller.plants
-          .map((p) => p.ubicacion)
-          .where((v) => v.trim().isNotEmpty)
-          .toSet(),
-    ];
-    final categories = [
+      ...?_options['ubicacion'],
+      _location,
+    }.toList();
+    final categories = {
       'Todas las plantas',
-      ...controller.plants
-          .map((p) => p.categoria?.nombre ?? '')
-          .where((v) => v.trim().isNotEmpty)
-          .toSet(),
-    ];
-
+      ...?_options['categoria'],
+      _category,
+    }.toList();
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -148,7 +190,7 @@ class _CatalogViewState extends State<CatalogView> {
           IconButton(
             icon: const Icon(Icons.inventory_2_outlined),
             color: AppColors.primary,
-            onPressed: () => context.push(AppRoutes.myPublications),
+            onPressed: () => context.push(AppRoutes.myPublications).then((_) => _load()),
           ),
           IconButton(
             icon: const Icon(Icons.person_outline),
@@ -162,7 +204,7 @@ class _CatalogViewState extends State<CatalogView> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        onPressed: () => context.push(AppRoutes.publishPlant),
+        onPressed: () => context.push(AppRoutes.publishPlant).then((_) => _load()),
         icon: const Icon(Icons.add_photo_alternate_outlined),
         label: const Text(
           'Publicar planta',
@@ -170,17 +212,10 @@ class _CatalogViewState extends State<CatalogView> {
         ),
       ),
       bottomNavigationBar: _bottomNavigation(context),
-      body: controller.isLoading && controller.plants.isEmpty
-          ? const Center(child: CircularProgressIndicator())
-          : controller.state == PlantState.error && controller.plants.isEmpty
-          ? _ErrorState(message: controller.friendlyError(), onRetry: _prepare)
-          : RefreshIndicator(
-              onRefresh: () async {
-                setState(() => _shownCount = 6);
-                await controller.loadCatalog();
-              },
-              child: _catalogBody(plants, visiblePlants, locations, categories),
-            ),
+      body: RefreshIndicator(
+        onRefresh: () => _load(),
+        child: _catalogBody(plants, visiblePlants, locations, categories),
+      ),
     );
   }
 
@@ -191,6 +226,7 @@ class _CatalogViewState extends State<CatalogView> {
     List<String> categories,
   ) => ListView(
     controller: _scrollController,
+    physics: const AlwaysScrollableScrollPhysics(),
     padding: const EdgeInsets.fromLTRB(20, 12, 20, 110),
     children: [
       const Text(
@@ -214,7 +250,7 @@ class _CatalogViewState extends State<CatalogView> {
       const SizedBox(height: 22),
       TextField(
         controller: _searchController,
-        onChanged: (_) => setState(() => _shownCount = 6),
+        onChanged: _searchChanged,
         decoration: const InputDecoration(
           prefixIcon: Icon(Icons.search),
           hintText: 'Buscar plantas (ej. Monstera, Pothos...)',
@@ -246,16 +282,70 @@ class _CatalogViewState extends State<CatalogView> {
           ),
         ],
       ),
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          Expanded(
+            child: _FilterButton(
+              icon: Icons.straighten,
+              label: _size,
+              onTap: () async {
+                final value = await _showPicker(
+                  'Tamaño',
+                  {'Todos los tamaños', ...?_options['tamano'], _size}.toList(),
+                );
+                if (!mounted || value == null) return;
+                setState(() => _size = value);
+                await _load();
+              },
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _FilterButton(
+              icon: Icons.water_drop_outlined,
+              label: _care,
+              onTap: () async {
+                final value = await _showPicker(
+                  'Nivel de cuidado',
+                  {
+                    'Todos los cuidados',
+                    ...?_options['nivel_cuidado'],
+                    _care,
+                  }.toList(),
+                );
+                if (!mounted || value == null) return;
+                setState(() => _care = value);
+                await _load();
+              },
+            ),
+          ),
+        ],
+      ),
+      TextButton(
+        onPressed: () {
+          _debounce?.cancel();
+          setState(() {
+            _location = 'Todas las ubicaciones';
+            _category = 'Todas las plantas';
+            _size = 'Todos los tamaños';
+            _care = 'Todos los cuidados';
+            _searchController.clear();
+          });
+          _load();
+        },
+        child: const Text('Limpiar filtros'),
+      ),
       const SizedBox(height: 9),
       const Text(
         'Los resultados se actualizan automáticamente',
         style: TextStyle(fontSize: 12, color: AppColors.textDisabled),
       ),
       const SizedBox(height: 28),
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Expanded(
+          const SizedBox(
             child: Text(
               'Plantas disponibles',
               style: TextStyle(
@@ -266,7 +356,7 @@ class _CatalogViewState extends State<CatalogView> {
             ),
           ),
           Text(
-            '(${plants.length} plantas disponibles)',
+            '($_total resultados)',
             style: const TextStyle(
               fontSize: 11,
               color: AppColors.textSecondary,
@@ -285,27 +375,51 @@ class _CatalogViewState extends State<CatalogView> {
         ],
       ),
       const SizedBox(height: 14),
-      if (visible.isEmpty)
+      if (visible.isEmpty && !_loading && _error == null)
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 60),
           child: Center(
             child: Text('No encontramos plantas con esos filtros.'),
           ),
         ),
-      ...visible.map(
-        (plant) => Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: PlantCard(
-            plant: plant,
-            isFavorite: _favoriteIds.contains(plant.idPlanta),
-            onFavoriteTap: () => _toggleFavorite(plant),
-          ),
+      GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: visible.length,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: MediaQuery.sizeOf(context).width >= 700 ? 3 : 2,
+          mainAxisExtent: 310,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 12,
+        ),
+        itemBuilder: (_, i) => PlantCard(
+          plant: visible[i],
+          isFavorite: _favoriteIds.contains(visible[i].idPlanta),
+          onFavoriteTap: () => _toggleFavorite(visible[i]),
+          onReturn: () => _load(),
         ),
       ),
-      if (_isLoadingMore)
+      if (_loading)
         const Padding(
           padding: EdgeInsets.all(18),
-          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      if (_error != null)
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              Text(_error!),
+              TextButton(
+                onPressed: () {
+                  final more = _items.isNotEmpty;
+                  setState(() => _error = null);
+                  _load(more: more);
+                },
+                child: const Text('Reintentar'),
+              ),
+            ],
+          ),
         ),
     ],
   );
@@ -320,7 +434,7 @@ class _CatalogViewState extends State<CatalogView> {
     selectedItemColor: AppColors.primary,
     unselectedItemColor: AppColors.textDisabled,
     onTap: (index) {
-      if (index == 1) context.push(AppRoutes.publishPlant);
+      if (index == 1) context.push(AppRoutes.publishPlant).then((_) => _load());
       if (index == 2) context.go(AppRoutes.messages);
     },
     items: const [
@@ -346,8 +460,8 @@ class _CatalogViewState extends State<CatalogView> {
     if (!mounted || value == null) return;
     setState(() {
       _location = value;
-      _shownCount = 6;
     });
+    await _load();
   }
 
   Future<void> _chooseCategory(List<String> values) async {
@@ -355,8 +469,8 @@ class _CatalogViewState extends State<CatalogView> {
     if (!mounted || value == null) return;
     setState(() {
       _category = value;
-      _shownCount = 6;
     });
+    await _load();
   }
 
   Future<String?> _showPicker(String title, List<String> values) =>
@@ -389,7 +503,11 @@ class _CatalogViewState extends State<CatalogView> {
                     itemCount: values.length,
                     itemBuilder: (context, index) {
                       final value = values[index];
-                      final selected = value == _location || value == _category;
+                      final selected =
+                          value == _location ||
+                          value == _category ||
+                          value == _size ||
+                          value == _care;
                       return ListTile(
                         title: Text(value),
                         trailing: selected
@@ -405,32 +523,6 @@ class _CatalogViewState extends State<CatalogView> {
           ),
         ),
       );
-}
-
-class _ErrorState extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-  const _ErrorState({required this.message, required this.onRetry});
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.cloud_off_outlined,
-            size: 48,
-            color: AppColors.accent,
-          ),
-          const SizedBox(height: 12),
-          Text(message, textAlign: TextAlign.center),
-          const SizedBox(height: 12),
-          FilledButton(onPressed: onRetry, child: const Text('Reintentar')),
-        ],
-      ),
-    ),
-  );
 }
 
 class _FilterButton extends StatelessWidget {
@@ -480,146 +572,89 @@ class PlantCard extends StatelessWidget {
   final PlantModel plant;
   final bool isFavorite;
   final VoidCallback onFavoriteTap;
+  final VoidCallback? onReturn;
   const PlantCard({
     super.key,
     required this.plant,
     required this.isFavorite,
     required this.onFavoriteTap,
+    this.onReturn,
   });
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: () => context.push(
-      AppRoutes.plantDetail.replaceFirst(':id', '${plant.idPlanta}'),
-      extra: plant,
-    ),
+  Widget build(BuildContext context) => InkWell(
+    onTap: () => context
+        .push(
+          AppRoutes.plantDetail.replaceFirst(':id', '${plant.idPlanta}'),
+          extra: plant,
+        )
+        .then((_) => onReturn?.call()),
     child: Card(
       margin: EdgeInsets.zero,
-      elevation: 0,
-      color: Colors.white,
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: AppColors.border),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Stack(
-            children: [
-              SizedBox(
-                height: 180,
-                width: double.infinity,
-                child: PlantImage(url: plant.fotografiaUrl),
-              ),
-              Positioned(
-                top: 14,
-                left: 14,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 11,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: const Text(
-                    'Disponible para adopción',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 10,
-                right: 10,
-                child: CircleAvatar(
-                  backgroundColor: Colors.white,
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
+          SizedBox(
+            height: 130,
+            width: double.infinity,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                PlantImage(url: plant.fotografiaUrl),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: IconButton.filledTonal(
+                    onPressed: onFavoriteTap,
                     icon: Icon(
                       isFavorite ? Icons.favorite : Icons.favorite_border,
-                      color: isFavorite ? Colors.redAccent : AppColors.primary,
-                      size: 20,
                     ),
-                    onPressed: onFavoriteTap,
                   ),
-                ),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 15, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        plant.nombre,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.primary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _tag('Gratis'),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '${plant.categoria?.nombre ?? 'Sin categoría'}  ${plant.estadoPlanta}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 13),
-                Wrap(
-                  spacing: 7,
-                  runSpacing: 7,
-                  children: [
-                    _tag(
-                      'Tamaño: ${plant.tamano.isEmpty ? 'Mediano' : plant.tamano}',
-                      pale: true,
-                    ),
-                    _tag(
-                      'Cuidado: ${plant.nivelCuidado.isEmpty ? 'Intermedio' : plant.nivelCuidado}',
-                      pale: true,
-                    ),
-                    _tag(
-                      'Luz: ${plant.necesidadLuz.isEmpty ? 'Media' : plant.necesidadLuz}',
-                      pale: true,
-                    ),
-                  ],
                 ),
               ],
             ),
           ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    plant.nombre,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    plant.categoria?.nombre ?? 'Sin categoría',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'Tamaño: ${plant.tamano}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'Cuidado: ${plant.nivelCuidado}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const Spacer(),
+                  const Text(
+                    'Disponible · Ver detalle',
+                    style: TextStyle(fontSize: 11, color: AppColors.primary),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
-      ),
-    ),
-  );
-  Widget _tag(String text, {bool pale = false}) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-    decoration: BoxDecoration(
-      color: pale ? AppColors.fieldBackground : const Color(0xFFDCE9DF),
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: Text(
-      text,
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        color: pale ? AppColors.textSecondary : AppColors.primary,
       ),
     ),
   );
