@@ -5,12 +5,6 @@ import 'package:flutter_app/services/plant_service.dart';
 enum PlantState { initial, loading, ready, error }
 
 class PlantController extends ChangeNotifier {
-  static const List<PlantCategory> _fallbackCategories = [
-    PlantCategory(idCategoria: 2, nombre: 'Interior', estado: 'ACTIVA'),
-    PlantCategory(idCategoria: 3, nombre: 'Exterior', estado: 'ACTIVA'),
-    PlantCategory(idCategoria: 4, nombre: 'Suculenta', estado: 'ACTIVA'),
-  ];
-
   final PlantService _plantService;
 
   PlantController({PlantService? plantService})
@@ -33,15 +27,13 @@ class PlantController extends ChangeNotifier {
     _setLoading();
     try {
       final remoteCategories = await _plantService.GetCategories();
-      _categories = remoteCategories.isEmpty
-          ? _fallbackCategories
-          : remoteCategories;
+      _categories = remoteCategories;
       _setReady();
       return true;
     } catch (e) {
       debugPrint('[PlantController] Error cargando categorías: $e');
-      _categories = _fallbackCategories;
-      _setReady();
+      _categories = [];
+      _setFailure(e);
       return false;
     }
   }
@@ -136,7 +128,7 @@ class PlantController extends ChangeNotifier {
           necesidadAgua: item.necesidadAgua,
           descripcion: item.descripcion,
           ubicacion: item.ubicacion,
-          estadoPlanta: 'RETIRADA',
+          estadoPlanta: item.estadoPlanta,
           fechaPublicacion: item.fechaPublicacion,
           visible: false,
           eliminada: true,

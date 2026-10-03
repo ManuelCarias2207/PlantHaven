@@ -83,6 +83,7 @@ class _MyPlantsViewState extends State<MyPlantsView> {
                   final plant = controller.myPlants[index];
                   final canEdit =
                       plant.estadoPlanta.toUpperCase() == 'DISPONIBLE' &&
+                      plant.visible &&
                       !plant.eliminada;
                   return Card(
                     margin: const EdgeInsets.only(bottom: 14),

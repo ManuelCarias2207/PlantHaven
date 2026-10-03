@@ -38,6 +38,8 @@ class _PlantFormViewState extends State<PlantFormView> {
   final _careController = TextEditingController();
   final _locationController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _lightController = TextEditingController();
+  final _waterController = TextEditingController();
   final _picker = ImagePicker();
 
   int? _categoryId;
@@ -51,6 +53,7 @@ class _PlantFormViewState extends State<PlantFormView> {
   bool get _canEdit =>
       _editingPlant != null &&
       _editingPlant!.estadoPlanta.toUpperCase() == 'DISPONIBLE' &&
+      _editingPlant!.visible &&
       !_editingPlant!.eliminada;
 
   @override
@@ -85,6 +88,8 @@ class _PlantFormViewState extends State<PlantFormView> {
     _careController.text = plant.nivelCuidado;
     _locationController.text = plant.ubicacion;
     _descriptionController.text = plant.descripcion ?? '';
+    _lightController.text = plant.necesidadLuz;
+    _waterController.text = plant.necesidadAgua;
     _categoryId = plant.idCategoria;
     _size = plant.tamano;
     _health = plant.estadoSalud;
@@ -96,6 +101,8 @@ class _PlantFormViewState extends State<PlantFormView> {
     _careController.dispose();
     _locationController.dispose();
     _descriptionController.dispose();
+    _lightController.dispose();
+    _waterController.dispose();
     super.dispose();
   }
 
@@ -120,8 +127,25 @@ class _PlantFormViewState extends State<PlantFormView> {
       ),
     );
     if (source == null) return;
-    final image = await _picker.pickImage(source: source, imageQuality: 85);
-    if (mounted && image != null) setState(() => _selectedImage = image);
+    try {
+      final image = await _picker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 2000,
+        maxHeight: 2000,
+      );
+      if (image != null && await image.length() > 8 * 1024 * 1024) {
+        if (mounted) _showError('La fotografía no debe superar 8 MB.');
+        return;
+      }
+      if (mounted && image != null) setState(() => _selectedImage = image);
+    } catch (_) {
+      if (mounted) {
+        _showError(
+          'No se pudo abrir la foto. Revisa los permisos de cámara o galería.',
+        );
+      }
+    }
   }
 
   Future<void> _submit() async {
@@ -150,8 +174,8 @@ class _PlantFormViewState extends State<PlantFormView> {
       tamano: _size!,
       nivelCuidado: _careController.text.trim(),
       estadoSalud: _health!,
-      necesidadLuz: 'Media',
-      necesidadAgua: 'Medio',
+      necesidadLuz: _lightController.text.trim(),
+      necesidadAgua: _waterController.text.trim(),
       ubicacion: _locationController.text.trim(),
       idCategoria: _categoryId!,
       descripcion: _descriptionController.text.trim(),
@@ -298,7 +322,7 @@ class _PlantFormViewState extends State<PlantFormView> {
             _sectionLabel('Nombre de la planta *'),
             TextFormField(
               controller: _nameController,
-              maxLength: 40,
+              maxLength: 100,
               validator: Validators.required,
               decoration: const InputDecoration(
                 hintText: 'Ej. Monstera deliciosa',
@@ -375,6 +399,7 @@ class _PlantFormViewState extends State<PlantFormView> {
             _sectionLabel('Cuidados necesarios *'),
             TextFormField(
               controller: _careController,
+              maxLength: 50,
               validator: Validators.required,
               decoration: const InputDecoration(
                 hintText: 'Ej. Luz indirecta y riego semanal',
@@ -382,6 +407,20 @@ class _PlantFormViewState extends State<PlantFormView> {
               ),
             ),
             const SizedBox(height: 22),
+            _sectionLabel('Necesidad de luz *'),
+            TextFormField(
+              controller: _lightController,
+              maxLength: 100,
+              validator: Validators.required,
+              decoration: const InputDecoration(hintText: 'Ej. Luz indirecta'),
+            ),
+            _sectionLabel('Necesidad de agua *'),
+            TextFormField(
+              controller: _waterController,
+              maxLength: 100,
+              validator: Validators.required,
+              decoration: const InputDecoration(hintText: 'Ej. Riego semanal'),
+            ),
             _sectionLabel('Estado de salud actual *'),
             Wrap(
               spacing: 8,
@@ -410,6 +449,7 @@ class _PlantFormViewState extends State<PlantFormView> {
             _sectionLabel('Ubicación aproximada *'),
             TextFormField(
               controller: _locationController,
+              maxLength: 255,
               validator: Validators.required,
               decoration: const InputDecoration(
                 hintText: 'Ej. Santa Tecla',
@@ -520,21 +560,29 @@ class _PlantFormViewState extends State<PlantFormView> {
             borderRadius: BorderRadius.circular(18),
           ),
           child: _selectedImage == null
-              ? InkWell(
-                  onTap: _chooseImage,
-                  child: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.add_a_photo_outlined,
-                        size: 42,
-                        color: AppColors.accent,
-                      ),
-                      SizedBox(height: 8),
-                      Text('Agrega una foto clara de tu planta'),
-                    ],
-                  ),
-                )
+              ? (_editingPlant?.fotografiaUrl?.isNotEmpty == true
+                    ? Image.network(
+                        _editingPlant!.fotografiaUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, error, stack) => const Center(
+                          child: Text('No se pudo cargar la foto actual.'),
+                        ),
+                      )
+                    : InkWell(
+                        onTap: _chooseImage,
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.add_a_photo_outlined,
+                              size: 42,
+                              color: AppColors.accent,
+                            ),
+                            SizedBox(height: 8),
+                            Text('Agrega una foto clara de tu planta'),
+                          ],
+                        ),
+                      ))
               : FutureBuilder<Uint8List>(
                   future: _selectedImage!.readAsBytes(),
                   builder: (_, snapshot) => snapshot.hasData
