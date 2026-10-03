@@ -20,9 +20,11 @@ cadena, cuyo último commit es 4bc2c32; el merge conserva toda su historia.
 
 ## Pendientes comprobados en código
 
-- SCRUM-7: aceptación/rechazo del donante, transacción de adopción, rechazo de
-  otros candidatos, notificación y prueba de concurrencia con edición/retiro.
-  El PATCH actual de solicitudes solo corrige el mensaje del adoptante.
+- SCRUM-7: implementada la bandeja del donante desde Mis publicaciones →
+  Solicitudes recibidas, con filtros, paginación, detalle y confirmación de decisiones.
+  Requiere desplegar la actualización del backend: PATCH `/api/solicitudes/{id}`
+  admite `estado: ACEPTADA/RECHAZADA` además del mensaje del adoptante por separado.
+  Pendiente la prueba manual publicada para cerrar la integración con SCRUM-5.
 - SCRUM-6: completar edición y retiro de solicitudes en la interfaz y revisión
   de paginación (el listado integrado consulta hasta 100 solicitudes).
 - SCRUM-10: filtros de tamaño y cuidado y paginación real del servidor;
@@ -33,5 +35,8 @@ cadena, cuyo último commit es 4bc2c32; el merge conserva toda su historia.
   comunicación entre participantes ni autorización de chat.
 
 No marcar estas historias como terminadas solo por integrar sus ramas.
-Primero probar catálogo, detalle, publicaciones propias y envío de solicitud con
-dos cuentas. Después completar SCRUM-7 para cerrar la prueba conjunta de SCRUM-5.
+Catálogo, detalle, publicaciones propias y envío de solicitud con dos teléfonos
+fueron confirmados por Krisler. Ahora probar aceptación/rechazo tras desplegar
+SCRUM-7 y reinstalar la APK. La aceptación bloquea edición/retiro; otras solicitudes
+pendientes quedan rechazadas. Para verificar ese último caso hacen falta dos
+adoptantes y un donante para la misma planta.

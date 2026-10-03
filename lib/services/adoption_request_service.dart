@@ -45,8 +45,35 @@ class AdoptionRequestService {
     return AdoptionRequest.fromJson(_object(body));
   }
 
-  Future<List<AdoptionRequest>> received() =>
-      _list(ApiConfig.receivedRequestsPath);
+  Future<List<AdoptionRequest>> received({
+    int offset = 0,
+    String? estado,
+    int? plantId,
+  }) => _list(
+    '${ApiConfig.receivedRequestsPath}&offset=$offset${estado == null ? '' : '&estado=$estado'}${plantId == null ? '' : '&id_planta=$plantId'}',
+  );
+
+  Future<AdoptionRequest> decide(int id, String status) async {
+    final response = await _api.Patch(
+      '${ApiConfig.requestsPath}/$id',
+      body: {'estado': status},
+    );
+    final body = _decode(response.body);
+    if (response.statusCode != 200) {
+      throw Exception(body['detail'] ?? 'No se pudo guardar la decisión.');
+    }
+    return AdoptionRequest.fromJson(_object(body));
+  }
+
+  Future<AdoptionRequest> detail(int id) async {
+    final response = await _api.Get('${ApiConfig.requestsPath}/$id');
+    final body = _decode(response.body);
+    if (response.statusCode != 200) {
+      throw Exception(body['detail'] ?? 'No se pudo consultar la solicitud.');
+    }
+    return AdoptionRequest.fromJson(_object(body));
+  }
+
   Future<List<AdoptionRequest>> mine() => _list(ApiConfig.myRequestsPath);
 
   Future<List<AdoptionRequest>> _list(String path) async {

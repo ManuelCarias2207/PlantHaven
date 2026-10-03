@@ -1,3 +1,4 @@
+import 'package:flutter_app/views/received_requests_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_app/controllers/auth_controller.dart';
 import 'package:flutter_app/controllers/plant_controller.dart';
@@ -140,6 +141,19 @@ class _MyPlantsViewState extends State<MyPlantsView> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        actions: [
+          IconButton(
+            tooltip: 'Solicitudes recibidas',
+            icon: const Icon(Icons.inbox_outlined),
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ReceivedRequestsView()),
+              );
+              if (mounted) await _load();
+            },
+          ),
+        ],
         title: Text(
           'Mis publicaciones',
           style: GoogleFonts.inter(fontWeight: FontWeight.bold),
