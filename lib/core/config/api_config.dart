@@ -12,4 +12,7 @@ class ApiConfig {
   static const String profilePath = '/api/usuarios/me';
   static const String plantsPath = '/api/plantas';
   static const String myPlantsPath = '/api/plantas/mias';
+  static const String requestsPath = '/api/solicitudes';
+  static const String receivedRequestsPath = '/api/solicitudes?tipo=recibidas&limite=100';
+  static const String myRequestsPath = '/api/solicitudes?tipo=enviadas&limite=100';
 }

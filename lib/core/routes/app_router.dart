@@ -8,7 +8,7 @@ import 'package:flutter_app/views/reset_password_view.dart';
 import 'package:flutter_app/views/catalog_view.dart';
 import 'package:flutter_app/views/plant_form_view.dart';
 import 'package:flutter_app/views/my_plants_view.dart';
-import 'package:flutter_app/views/messages_view.dart';
+
 import 'package:flutter_app/views/plant_detail_view.dart';
 import 'package:flutter_app/models/plant_model.dart';
 import 'package:go_router/go_router.dart';
@@ -64,7 +64,17 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.messages,
-        builder: (context, state) => const MessagesView(),
+        builder: (context, state) => Scaffold(
+          appBar: AppBar(title: const Text('Mensajes')),
+          body: const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'El chat entre usuarios todavía está pendiente de conexión con la API. Se habilitará después de aceptar una solicitud.',
+              ),
+            ),
+          ),
+        ),
       ),
       GoRoute(
         path: AppRoutes.publishPlant,
@@ -80,7 +90,9 @@ class AppRouter {
           final plant = state.extra;
           if (plant is PlantModel) return PlantDetailView(plant: plant);
           return const Scaffold(
-            body: Center(child: Text('No se pudo cargar el detalle de la planta.')),
+            body: Center(
+              child: Text('No se pudo cargar el detalle de la planta.'),
+            ),
           );
         },
       ),
