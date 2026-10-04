@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_app/core/constants/app_routes.dart';
 import 'package:flutter_app/services/chat_service.dart';
 import 'package:flutter_app/views/server_chat_view.dart';
+import 'package:go_router/go_router.dart';
 
 class ServerChatsView extends StatefulWidget {
   const ServerChatsView({super.key});
@@ -87,7 +89,18 @@ class _ServerChatsViewState extends State<ServerChatsView>
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Mis conversaciones')),
+    appBar: AppBar(
+      title: const Text('Mis conversaciones'),
+      leading: BackButton(
+        onPressed: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go(AppRoutes.home);
+          }
+        },
+      ),
+    ),
     body: RefreshIndicator(
       onRefresh: _load,
       child: ListView(

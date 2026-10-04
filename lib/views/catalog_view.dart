@@ -445,7 +445,7 @@ class _CatalogViewState extends State<CatalogView> {
     unselectedItemColor: AppColors.textDisabled,
     onTap: (index) {
       if (index == 1) context.push(AppRoutes.publishPlant).then((_) => _load());
-      if (index == 2) context.go(AppRoutes.messages);
+      if (index == 2) context.push(AppRoutes.messages);
     },
     items: const [
       BottomNavigationBarItem(
