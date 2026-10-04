@@ -14,9 +14,8 @@ cadena, cuyo último commit es 4bc2c32; el merge conserva toda su historia.
   y `tipo=recibidas`; `/mias` y `/recibidas` no existen en la API actual.
 - Se conserva el motivo de error que devuelve la API y se impide solicitar
   una publicación propia desde el detalle.
-- El chat recibido es una demostración local con Hive. Se conserva su código,
-  pero se deshabilitan los accesos desde la app integrada hasta conectarlo con
-  la API y aplicar los permisos posteriores a la aceptación. No comunica teléfonos.
+- El chat de demostración local con Hive se conserva como código anterior.
+  Los accesos actuales usan el chat de la API compartida, no las conversaciones de ejemplo.
 
 ## Pendientes comprobados en código
 
@@ -35,8 +34,10 @@ cadena, cuyo último commit es 4bc2c32; el merge conserva toda su historia.
   Las opciones proceden de todas las publicaciones disponibles, no solo la primera
   página. Pendiente comprobar en teléfono tras desplegar la API.
 - SCRUM-11: detalle y fotografías confirmados por Krisler; completado.
-- SCRUM-8: conectar chat real con la API; el almacenamiento local no cumple
-  comunicación entre participantes ni autorización de chat.
+- SCRUM-8: chat real conectado a la API, entrada desde solicitudes aceptadas
+  (enviadas y recibidas) y Mis conversaciones. Actualiza cada tres segundos en
+  primer plano, conserva historial en PostgreSQL y recupera mensajes tras reconexión.
+  Pendiente validación en dos teléfonos. El punto de encuentro se revisa con SCRUM-9.
 
 No marcar estas historias como terminadas solo por integrar sus ramas.
 Catálogo, detalle, publicaciones propias, envío y aceptación/rechazo con varios
@@ -56,4 +57,14 @@ Publicar y editar permiten agregar imágenes de galería o cámara, hasta cinco,
 con vista previa y eliminación de la selección antes de guardar. La primera es
 la principal. Editar conserva las URLs elegidas y envía las fotos nuevas en una
 sola solicitud, manteniendo al menos una. Primero desplegar el backend con soporte
-multipart múltiple; después generar e instalar la APK. Pendiente prueba en teléfono.
+multipart múltiple; después generar e instalar la APK. Pruebas de fotografías múltiples
+confirmadas por Krisler.
+
+### Recuperación al volver de la cámara — 03/10/2026
+
+Antes de abrir cámara/galería se guarda temporalmente el formulario con sus fotos
+y el ID del dueño en Hive. Al reiniciar, `retrieveLostData` recupera la selección
+pendiente de Android; la sesión guardada dirige al formulario y la API vuelve a
+validarla. Si venció, iniciar sesión con la misma cuenta recupera el borrador.
+No se guardan credenciales en el borrador ni se publica automáticamente. Al cerrar
+sesión se elimina. Pendiente repetir captura, cancelación y edición en teléfono.

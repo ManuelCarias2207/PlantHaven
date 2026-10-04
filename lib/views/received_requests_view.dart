@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_app/views/server_chat_view.dart';
 import 'package:flutter_app/controllers/auth_controller.dart';
 import 'package:flutter_app/core/constants/app_routes.dart';
 import 'package:flutter_app/models/adoption_request_model.dart';
@@ -230,6 +231,19 @@ class _ReceivedRequestsViewState extends State<ReceivedRequestsView> {
                                   onPressed: () => _detail(request),
                                   child: const Text('Ver detalle'),
                                 ),
+                                if (request.status == 'ACEPTADA')
+                                  FilledButton.icon(
+                                    icon: const Icon(Icons.chat_bubble_outline),
+                                    label: const Text('Abrir chat'),
+                                    onPressed: () => Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => ServerChatView(
+                                          plantId: request.plantId,
+                                          plantName: request.plantName,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 if (request.status == 'PENDIENTE')
                                   Wrap(
                                     spacing: 12,

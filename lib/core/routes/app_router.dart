@@ -9,6 +9,7 @@ import 'package:flutter_app/views/catalog_view.dart';
 import 'package:flutter_app/views/plant_form_view.dart';
 import 'package:flutter_app/views/my_plants_view.dart';
 import 'package:flutter_app/services/pending_plant_draft.dart';
+import 'package:flutter_app/views/server_chats_view.dart';
 
 import 'package:flutter_app/views/plant_detail_view.dart';
 import 'package:flutter_app/models/plant_model.dart';
@@ -65,17 +66,7 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.messages,
-        builder: (context, state) => Scaffold(
-          appBar: AppBar(title: const Text('Mensajes')),
-          body: const Center(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Text(
-                'El chat entre usuarios todavía está pendiente de conexión con la API. Se habilitará después de aceptar una solicitud.',
-              ),
-            ),
-          ),
-        ),
+        builder: (context, state) => const ServerChatsView(),
       ),
       GoRoute(
         path: AppRoutes.publishPlant,
