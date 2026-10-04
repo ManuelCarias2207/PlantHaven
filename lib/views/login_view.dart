@@ -40,7 +40,7 @@ class _LoginViewState extends State<LoginView> {
     );
 
     if (success && mounted) {
-      context.go(AppRoutes.catalog);
+      context.go(controller.defaultAuthenticatedRoute);
     }
   }
 

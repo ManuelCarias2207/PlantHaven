@@ -8,6 +8,7 @@ import 'package:flutter_app/views/reset_password_view.dart';
 import 'package:flutter_app/views/catalog_view.dart';
 import 'package:flutter_app/views/plant_form_view.dart';
 import 'package:flutter_app/views/my_plants_view.dart';
+import 'package:flutter_app/services/pending_plant_draft.dart';
 
 import 'package:flutter_app/views/plant_detail_view.dart';
 import 'package:flutter_app/models/plant_model.dart';
@@ -19,7 +20,7 @@ class AppRouter {
 
   static final GoRouter router = GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: AppRoutes.login,
+    initialLocation: PendingPlantDraft.initialRoute,
     debugLogDiagnostics: true,
     redirect: (context, state) {
       // Guard básico: si no está autenticado y trata de acceder a ruta protegida,

@@ -4,9 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_app/models/auth_model.dart';
 import 'package:flutter_app/models/user_model.dart';
-import 'package:flutter_app/core/constants/app_routes.dart';
 import 'package:flutter_app/services/auth_service.dart';
 import 'package:flutter_app/utils/session_manager.dart';
+import 'package:flutter_app/services/pending_plant_draft.dart';
 
 /// Estados posibles del controlador de autenticación.
 enum AuthState { initial, loading, authenticated, error }
@@ -31,7 +31,8 @@ class AuthController extends ChangeNotifier {
   UserModel? get currentUser => _currentUser;
   bool get isAuthenticated => _isAuthenticated;
   bool get isLoading => _state == AuthState.loading;
-  String get defaultAuthenticatedRoute => AppRoutes.home;
+  String get defaultAuthenticatedRoute =>
+      PendingPlantDraft.routeForUser(_currentUser?.idUsuario);
 
   /// Inicia sesión con identificador (correo o teléfono) y contraseña.
   Future<bool> login({
@@ -218,6 +219,7 @@ class AuthController extends ChangeNotifier {
 
     try {
       _currentUser = await _authService.GetProfile();
+      _isAuthenticated = true;
       _state = AuthState.authenticated;
       _errorMessage = null;
       notifyListeners();
@@ -286,6 +288,7 @@ class AuthController extends ChangeNotifier {
 
   /// Cierra la sesión del usuario.
   Future<void> logout() async {
+    await PendingPlantDraft.clear();
     await _authService.Logout();
     _currentUser = null;
     _isAuthenticated = false;

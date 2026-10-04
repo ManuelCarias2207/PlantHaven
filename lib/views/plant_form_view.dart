@@ -7,6 +7,7 @@ import 'package:flutter_app/core/constants/app_colors.dart';
 import 'package:flutter_app/core/constants/app_routes.dart';
 import 'package:flutter_app/core/utils/validators.dart';
 import 'package:flutter_app/models/plant_model.dart';
+import 'package:flutter_app/services/pending_plant_draft.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -79,6 +80,30 @@ class _PlantFormViewState extends State<PlantFormView> {
       _editingPlant = await plants.loadMyPlant(widget.plantId!);
       if (_editingPlant != null) _fillForm(_editingPlant!);
     }
+    final draft = PendingPlantDraft.value;
+    if (draft != null &&
+        draft['ownerId'] == auth.currentUser?.idUsuario &&
+        draft['plantId'] == widget.plantId) {
+      _nameController.text = draft['name'];
+      _careController.text = draft['care'];
+      _locationController.text = draft['location'];
+      _descriptionController.text = draft['description'];
+      _lightController.text = draft['light'];
+      _waterController.text = draft['water'];
+      _categoryId = draft['category'];
+      _size = draft['size'];
+      _health = draft['health'];
+      _keptPhotos
+        ..clear()
+        ..addAll(List<String>.from(draft['kept']));
+      _selectedImages.addAll(
+        (draft['photos'] as List).map(
+          (p) => (bytes: List<int>.from(p['bytes']), name: p['name'] as String),
+        ),
+      );
+      if (mounted && draft['error'] != null) _showError(draft['error']);
+      await PendingPlantDraft.clear();
+    }
     if (mounted) setState(() => _preparing = false);
   }
 
@@ -135,6 +160,30 @@ class _PlantFormViewState extends State<PlantFormView> {
     if (!mounted) return;
     setState(() => _picking = true);
     try {
+      final userId = context.read<AuthController>().currentUser?.idUsuario;
+      if (userId == null) {
+        _showError(
+          'No se pudo verificar tu cuenta. Vuelve a abrir la publicación.',
+        );
+        return;
+      }
+      await PendingPlantDraft.save({
+        'ownerId': userId,
+        'plantId': widget.plantId,
+        'name': _nameController.text,
+        'care': _careController.text,
+        'location': _locationController.text,
+        'description': _descriptionController.text,
+        'light': _lightController.text,
+        'water': _waterController.text,
+        'category': _categoryId,
+        'size': _size,
+        'health': _health,
+        'kept': List.of(_keptPhotos),
+        'photos': _selectedImages
+            .map((p) => {'bytes': p.bytes, 'name': p.name})
+            .toList(),
+      });
       final List<XFile> images;
       if (source == ImageSource.gallery) {
         images = await _picker.pickMultiImage(
@@ -176,6 +225,7 @@ class _PlantFormViewState extends State<PlantFormView> {
         );
       }
     } finally {
+      await PendingPlantDraft.clear();
       if (mounted) setState(() => _picking = false);
     }
   }

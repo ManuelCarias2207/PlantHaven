@@ -6,12 +6,25 @@ import 'package:flutter_app/controllers/plant_controller.dart';
 import 'package:flutter_app/controllers/adoption_request_controller.dart';
 import 'package:flutter_app/injection_container.dart';
 import 'package:flutter_app/services/local_chat_store.dart';
+import 'package:flutter_app/services/pending_plant_draft.dart';
+import 'package:flutter_app/utils/session_manager.dart';
+import 'package:flutter_app/core/constants/app_routes.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LocalChatStore.initialize();
+  await PendingPlantDraft.initialize();
+  try {
+    if (await SessionManager().HasToken()) {
+      PendingPlantDraft.initialRoute = PendingPlantDraft.value == null
+          ? AppRoutes.home
+          : PendingPlantDraft.pendingRoute;
+    }
+  } catch (_) {
+    // La pantalla de acceso sigue disponible si no puede leerse la sesión.
+  }
 
   // Capturar errores no manejados para mostrarlos en pantalla
   FlutterError.onError = (FlutterErrorDetails details) {
