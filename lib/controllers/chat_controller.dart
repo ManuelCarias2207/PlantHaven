@@ -45,6 +45,18 @@ class ChatController extends ChangeNotifier {
         _notify();
         if (_cursor == previousCursor) break;
       } while (batch.length == 100);
+      // Los puntos existentes pueden cambiar sin crear un mensaje nuevo.
+      if (_messages.values.any((m) => m.point != null)) {
+        final points = {for (final p in await service.points(chatId!)) p.id: p};
+        if (_disposed) return;
+        for (final entry in _messages.entries.toList()) {
+          if (entry.value.point != null) {
+            _messages[entry.key] = entry.value.withPoint(
+              points[entry.value.point!.id],
+            );
+          }
+        }
+      }
       error = null;
     } catch (e) {
       if (!_disposed) _fail(e);
@@ -83,6 +95,32 @@ class ChatController extends ChangeNotifier {
     } finally {
       sending = false;
       _notify();
+    }
+  }
+
+  Future<bool> changePoint(Future<void> Function(int chatId) change) async {
+    if (sending || denied || chatId == null || _disposed) return false;
+    sending = true;
+    _notify();
+    String? actionError;
+    try {
+      await change(chatId!);
+      error = null;
+      return true;
+    } catch (e) {
+      if (!_disposed) {
+        _fail(e);
+        actionError = error;
+      }
+      return false;
+    } finally {
+      sending = false;
+      _notify();
+      await sync();
+      if (actionError != null && !_disposed) {
+        error = actionError;
+        _notify();
+      }
     }
   }
 

@@ -37,7 +37,8 @@ cadena, cuyo último commit es 4bc2c32; el merge conserva toda su historia.
 - SCRUM-8: chat real conectado a la API, entrada desde solicitudes aceptadas
   (enviadas y recibidas) y Mis conversaciones. Actualiza cada tres segundos en
   primer plano, conserva historial en PostgreSQL y recupera mensajes tras reconexión.
-  Pendiente validación en dos teléfonos. El punto de encuentro se revisa con SCRUM-9.
+  Validación de texto e historial en teléfonos confirmada por Krisler.
+  El punto de encuentro se completa con SCRUM-9.
 
 No marcar estas historias como terminadas solo por integrar sus ramas.
 Catálogo, detalle, publicaciones propias, envío y aceptación/rechazo con varios
@@ -67,4 +68,31 @@ y el ID del dueño en Hive. Al reiniciar, `retrieveLostData` recupera la selecci
 pendiente de Android; la sesión guardada dirige al formulario y la API vuelve a
 validarla. Si venció, iniciar sesión con la misma cuenta recupera el borrador.
 No se guardan credenciales en el borrador ni se publica automáticamente. Al cerrar
-sesión se elimina. Pendiente repetir captura, cancelación y edición en teléfono.
+sesión se elimina. Pruebas de cámara confirmadas por Krisler.
+
+## SCRUM-9 y entrega de la base al equipo
+
+El chat permite seleccionar un punto fijo en mapa, enviarlo mediante la API,
+consultarlo, abrir «Cómo llegar», corregirlo y retirarlo. Ambas personas reciben
+las correcciones y retiros de puntos existentes. Solo el autor puede cambiarlos
+y solo durante una adopción EN_PROCESO; la API vuelve a comprobarlo siempre.
+No usa GPS ni seguimiento de personas. Requiere desplegar el backend de SCRUM-9.
+Las pruebas automatizadas pasaron; falta la prueba manual del mapa en dos teléfonos.
+
+La rama principal de este repositorio se llama `principal` (la API usa `Main`).
+Para obtener esta base, desde una copia sin cambios locales pendientes:
+
+```powershell
+git fetch origin
+git switch principal
+git pull --ff-only origin principal
+flutter pub get
+```
+
+Si Git avisa de cambios locales o ramas divergentes, conservar ese trabajo y
+revisarlo antes de seguir; no aplicar un reset ni forzar el push. Para continuar
+una tarea nueva, crear una rama desde esta base. El código usa la API de Render.
+Cada compañero genera su APK con `flutter build apk --release`.
+
+Trabajo siguiente acordado: el compañero implementará SCRUM-16, administración
+básica y notificaciones si hay tiempo. Historial de adopciones fuera de esta etapa.

@@ -26,16 +26,95 @@ class ServerMessage {
   final int id, userId;
   final String text;
   final DateTime date;
+  final ServerPoint? point;
+  ServerMessage({
+    required this.id,
+    required this.userId,
+    required this.text,
+    required this.date,
+    this.point,
+  });
   ServerMessage.fromJson(Map<String, dynamic> json)
     : id = json['id_mensaje'],
       userId = json['id_usuario'],
       text = json['contenido'] ?? '',
-      date = DateTime.parse(json['fecha_hora']);
+      date = DateTime.parse(json['fecha_hora']),
+      point = json['punto'] == null
+          ? null
+          : ServerPoint.fromJson(json['punto']);
+
+  ServerMessage withPoint(ServerPoint? value) => ServerMessage(
+    id: id,
+    userId: userId,
+    date: date,
+    point: value,
+    text: value == null ? 'Punto de encuentro retirado por el remitente' : text,
+  );
+}
+
+class ServerPoint {
+  final int id, messageId;
+  final double latitude, longitude;
+  final String description;
+  final bool canEdit;
+  ServerPoint.fromJson(Map<String, dynamic> json)
+    : id = json['id_punto'],
+      messageId = json['id_mensaje'],
+      latitude = (json['latitud'] as num).toDouble(),
+      longitude = (json['longitud'] as num).toDouble(),
+      description = json['descripcion'] ?? '',
+      canEdit = json['puede_editar'] == true;
 }
 
 class ChatService {
   final ApiService _api;
   ChatService({ApiService? api}) : _api = api ?? ApiService();
+
+  Future<List<ServerPoint>> points(int chatId) async =>
+      (_read(await _api.Get('/api/chats/$chatId/puntos')) as List)
+          .map((j) => ServerPoint.fromJson(j))
+          .toList();
+
+  Future<ServerPoint> point(int id) async =>
+      ServerPoint.fromJson(_read(await _api.Get('/api/puntos-encuentro/$id')));
+
+  Future<ServerMessage> sendPoint(
+    int chatId,
+    double lat,
+    double lon,
+    String description,
+  ) async => ServerMessage.fromJson(
+    _read(
+      await _api.Post(
+        '/api/chats/$chatId/mensajes',
+        body: {
+          'tipo': 'UBICACION',
+          'latitud': lat,
+          'longitud': lon,
+          'descripcion': description,
+        },
+      ),
+    ),
+  );
+
+  Future<void> editPoint(
+    int id,
+    double lat,
+    double lon,
+    String description,
+  ) async {
+    _read(
+      await _api.Patch(
+        '/api/puntos-encuentro/$id',
+        body: {'latitud': lat, 'longitud': lon, 'descripcion': description},
+      ),
+    );
+  }
+
+  Future<void> removePoint(int id) async {
+    final response = await _api.Delete('/api/puntos-encuentro/$id');
+    if (response.statusCode != 204) _read(response);
+  }
 
   dynamic _read(http.Response response) {
     dynamic data;

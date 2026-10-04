@@ -451,7 +451,7 @@ class _LocationPicker extends StatelessWidget {
             onTap: () async {
               final location = await showDialog<LocalLocation>(
                 context: context,
-                builder: (_) => const _MapLocationPicker(),
+                builder: (_) => const MapLocationPicker(),
               );
               if (location != null && context.mounted) {
                 Navigator.pop(context, location);
@@ -569,14 +569,15 @@ class _CustomLocationDialogState extends State<_CustomLocationDialog> {
   }
 }
 
-class _MapLocationPicker extends StatefulWidget {
-  const _MapLocationPicker();
+class MapLocationPicker extends StatefulWidget {
+  final LocalLocation? initial;
+  const MapLocationPicker({super.key, this.initial});
 
   @override
-  State<_MapLocationPicker> createState() => _MapLocationPickerState();
+  State<MapLocationPicker> createState() => _MapLocationPickerState();
 }
 
-class _MapLocationPickerState extends State<_MapLocationPicker> {
+class _MapLocationPickerState extends State<MapLocationPicker> {
   static const _defaultPoint = LatLng(13.7167, -89.7167);
   final _placeController = TextEditingController();
   final _mapController = MapController();
@@ -585,8 +586,19 @@ class _MapLocationPickerState extends State<_MapLocationPicker> {
   String? _searchError;
 
   @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    if (initial != null) {
+      _selectedPoint = LatLng(initial.latitude, initial.longitude);
+      _placeController.text = initial.placeName;
+    }
+  }
+
+  @override
   void dispose() {
     _placeController.dispose();
+    _mapController.dispose();
     super.dispose();
   }
 
@@ -623,10 +635,10 @@ class _MapLocationPickerState extends State<_MapLocationPicker> {
         'format': 'jsonv2',
         'limit': '1',
       });
-      final response = await http.get(
-        uri,
-        headers: {'User-Agent': 'PlantHaven/1.0'},
-      );
+      final response = await http
+          .get(uri, headers: {'User-Agent': 'PlantHaven/1.0'})
+          .timeout(const Duration(seconds: 15));
+      if (!mounted) return;
       final results = jsonDecode(response.body);
       if (response.statusCode != 200 || results is! List || results.isEmpty) {
         throw const FormatException('Lugar no encontrado');
@@ -647,6 +659,7 @@ class _MapLocationPickerState extends State<_MapLocationPicker> {
       });
       _mapController.move(LatLng(latitude, longitude), 15);
     } catch (_) {
+      if (!mounted) return;
       setState(() {
         _searchError = 'No se encontró el lugar. También puedes tocar el mapa.';
       });
@@ -681,6 +694,7 @@ class _MapLocationPickerState extends State<_MapLocationPicker> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: TextField(
               controller: _placeController,
+              maxLength: 255,
               decoration: const InputDecoration(
                 labelText: 'Nombre del lugar (opcional)',
                 prefixIcon: Icon(Icons.place_outlined),
@@ -723,14 +737,29 @@ class _MapLocationPickerState extends State<_MapLocationPicker> {
             child: FlutterMap(
               mapController: _mapController,
               options: MapOptions(
-                initialCenter: _defaultPoint,
+                initialCenter: _selectedPoint ?? _defaultPoint,
                 initialZoom: 13,
-                onTap: (_, point) => setState(() => _selectedPoint = point),
+                onTap: (_, point) => setState(
+                  () => _selectedPoint = LatLng(
+                    point.latitude,
+                    ((point.longitude + 180) % 360) - 180,
+                  ),
+                ),
               ),
               children: [
                 TileLayer(
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.planthaven.app',
+                ),
+                RichAttributionWidget(
+                  attributions: [
+                    TextSourceAttribution(
+                      'OpenStreetMap contributors',
+                      onTap: () => launchUrl(
+                        Uri.parse('https://www.openstreetmap.org/copyright'),
+                      ),
+                    ),
+                  ],
                 ),
                 if (_selectedPoint != null)
                   MarkerLayer(

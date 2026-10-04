@@ -6,6 +6,9 @@ import 'package:flutter_app/controllers/chat_controller.dart';
 import 'package:flutter_app/core/constants/app_colors.dart';
 import 'package:flutter_app/services/chat_service.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_app/models/local_chat.dart';
+import 'package:flutter_app/views/local_chat_view.dart' show MapLocationPicker;
+import 'package:url_launcher/url_launcher.dart';
 
 class ServerChatView extends StatefulWidget {
   final int plantId;
@@ -31,6 +34,7 @@ class _ServerChatViewState extends State<ServerChatView>
   int _count = 0;
   bool _starting = true;
   String? _sessionError;
+  bool _choosingPoint = false;
 
   @override
   void initState() {
@@ -73,7 +77,7 @@ class _ServerChatViewState extends State<ServerChatView>
   }
 
   void _resume() {
-    if (_userId == null || !mounted) return;
+    if (_userId == null || !mounted || _choosingPoint) return;
     _timer?.cancel();
     _chat.sync();
     _timer = Timer.periodic(const Duration(seconds: 3), (_) => _chat.sync());
@@ -112,6 +116,161 @@ class _ServerChatViewState extends State<ServerChatView>
       _chat.sync();
     }
   }
+
+  Future<void> _choosePoint([ServerPoint? initial]) async {
+    _choosingPoint = true;
+    _timer?.cancel();
+    final location = await Navigator.of(context).push<LocalLocation>(
+      MaterialPageRoute(
+        builder: (_) => MapLocationPicker(
+          initial: initial == null
+              ? null
+              : LocalLocation(
+                  latitude: initial.latitude,
+                  longitude: initial.longitude,
+                  placeName: initial.description,
+                ),
+        ),
+      ),
+    );
+    _choosingPoint = false;
+    if (!mounted) return;
+    if (location != null) {
+      final ok = await _chat.changePoint((id) async {
+        if (initial == null) {
+          await _chat.service.sendPoint(
+            id,
+            location.latitude,
+            location.longitude,
+            location.placeName,
+          );
+        } else {
+          await _chat.service.editPoint(
+            initial.id,
+            location.latitude,
+            location.longitude,
+            location.placeName,
+          );
+        }
+      });
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_chat.error ?? 'No se pudo guardar el punto.'),
+          ),
+        );
+      }
+    }
+    if (mounted) _resume();
+  }
+
+  Future<void> _removePoint(ServerPoint point) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('¿Retirar punto de encuentro?'),
+        content: const Text(
+          'Se quitarán las coordenadas de ambos teléfonos. El mensaje quedará como aviso de retiro.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Retirar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      final ok = await _chat.changePoint(
+        (_) => _chat.service.removePoint(point.id),
+      );
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_chat.error ?? 'No se pudo retirar el punto.'),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _directions(ServerPoint point) async {
+    try {
+      // Consulta vigente: evita abrir coordenadas que el autor ya retiró o corrigió.
+      final current = await _chat.service.point(point.id);
+      final uri = Uri.https('www.google.com', '/maps/dir/', {
+        'api': '1',
+        'destination': '${current.latitude},${current.longitude}',
+      });
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        throw Exception();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e is ChatFailure
+                  ? e.message
+                  : 'No se pudo abrir el mapa externo. Revisa tu conexión.',
+            ),
+          ),
+        );
+        _chat.sync();
+      }
+    }
+  }
+
+  Widget _pointCard(ServerPoint point) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.place, color: AppColors.primary),
+            SizedBox(width: 6),
+            Flexible(child: Text('Punto de encuentro')),
+          ],
+        ),
+        if (point.description.isNotEmpty) Text(point.description),
+        Text(
+          '${point.latitude.toStringAsFixed(6)}, ${point.longitude.toStringAsFixed(6)}',
+        ),
+        const Text(
+          'Ubicación fija, sin rastreo.',
+          style: TextStyle(fontSize: 11),
+        ),
+        TextButton.icon(
+          onPressed: () => _directions(point),
+          icon: const Icon(Icons.directions),
+          label: const Text('Cómo llegar'),
+        ),
+        if (point.canEdit)
+          Wrap(
+            children: [
+              TextButton(
+                onPressed: _chat.sending ? null : () => _choosePoint(point),
+                child: const Text('Corregir'),
+              ),
+              TextButton(
+                onPressed: _chat.sending ? null : () => _removePoint(point),
+                child: const Text('Retirar'),
+              ),
+            ],
+          ),
+      ],
+    ),
+  );
 
   @override
   void dispose() {
@@ -188,14 +347,17 @@ class _ServerChatViewState extends State<ServerChatView>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  message.text,
-                                  style: TextStyle(
-                                    color: mine
-                                        ? Colors.white
-                                        : AppColors.primary,
+                                if (message.point != null)
+                                  _pointCard(message.point!)
+                                else
+                                  Text(
+                                    message.text,
+                                    style: TextStyle(
+                                      color: mine
+                                          ? Colors.white
+                                          : AppColors.primary,
+                                    ),
                                   ),
-                                ),
                                 const SizedBox(height: 6),
                                 Text(
                                   stamp,
@@ -218,6 +380,14 @@ class _ServerChatViewState extends State<ServerChatView>
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  IconButton(
+                    tooltip: 'Compartir punto de encuentro',
+                    onPressed:
+                        _chat.sending || _chat.denied || _chat.chatId == null
+                        ? null
+                        : () => _choosePoint(),
+                    icon: const Icon(Icons.add_location_alt_outlined),
+                  ),
                   Expanded(
                     child: TextField(
                       controller: _text,
