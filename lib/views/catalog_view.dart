@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_app/services/plant_service.dart';
 import 'package:flutter_app/views/my_requests_view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_app/views/adoptions_view.dart';
 import 'package:flutter_app/controllers/auth_controller.dart';
 import 'package:flutter_app/core/config/api_config.dart';
 import 'package:flutter_app/core/constants/app_colors.dart';
@@ -180,6 +181,13 @@ class _CatalogViewState extends State<CatalogView> {
         ),
         actions: [
           IconButton(
+            tooltip: 'Mis adopciones',
+            icon: const Icon(Icons.handshake_outlined),
+            onPressed: () => Navigator.of(context)
+                .push(MaterialPageRoute(builder: (_) => const AdoptionsView()))
+                .then((_) => _load()),
+          ),
+          IconButton(
             tooltip: 'Mis solicitudes',
             icon: const Icon(Icons.mark_email_read_outlined),
             onPressed: () => Navigator.push(
@@ -190,7 +198,8 @@ class _CatalogViewState extends State<CatalogView> {
           IconButton(
             icon: const Icon(Icons.inventory_2_outlined),
             color: AppColors.primary,
-            onPressed: () => context.push(AppRoutes.myPublications).then((_) => _load()),
+            onPressed: () =>
+                context.push(AppRoutes.myPublications).then((_) => _load()),
           ),
           IconButton(
             icon: const Icon(Icons.person_outline),
@@ -204,7 +213,8 @@ class _CatalogViewState extends State<CatalogView> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        onPressed: () => context.push(AppRoutes.publishPlant).then((_) => _load()),
+        onPressed: () =>
+            context.push(AppRoutes.publishPlant).then((_) => _load()),
         icon: const Icon(Icons.add_photo_alternate_outlined),
         label: const Text(
           'Publicar planta',

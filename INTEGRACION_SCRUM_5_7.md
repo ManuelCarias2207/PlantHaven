@@ -94,5 +94,9 @@ revisarlo antes de seguir; no aplicar un reset ni forzar el push. Para continuar
 una tarea nueva, crear una rama desde esta base. El código usa la API de Render.
 Cada compañero genera su APK con `flutter build apk --release`.
 
-Trabajo siguiente acordado: el compañero implementará SCRUM-16, administración
-básica y notificaciones si hay tiempo. Historial de adopciones fuera de esta etapa.
+SCRUM-16 implementado por Krisler reutilizando el backend del equipo web: Mis
+adopciones desde el catálogo y acceso desde el chat, confirmación por rol, fechas
+y finalización cuando ambas personas confirman. Pruebas automáticas aprobadas;
+pendiente validación manual en dos teléfonos tras desplegar la API actualizada.
+El compañero puede continuar administración básica y notificaciones si hay tiempo.
+La historia independiente de historial de adopciones queda fuera de esta etapa.

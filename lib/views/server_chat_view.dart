@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_app/views/adoptions_view.dart';
 import 'package:flutter_app/controllers/auth_controller.dart';
 import 'package:flutter_app/controllers/chat_controller.dart';
 import 'package:flutter_app/core/constants/app_colors.dart';
@@ -288,6 +289,23 @@ class _ServerChatViewState extends State<ServerChatView>
     final messages = _chat.messages;
     return Scaffold(
       appBar: AppBar(
+        actions: [
+          IconButton(
+            tooltip: 'Confirmar entrega o recepción',
+            icon: const Icon(Icons.handshake_outlined),
+            onPressed: () async {
+              _choosingPoint = true;
+              _timer?.cancel();
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => AdoptionsView(plantId: widget.plantId),
+                ),
+              );
+              _choosingPoint = false;
+              if (mounted) _resume();
+            },
+          ),
+        ],
         title: Text(
           widget.plantName.isEmpty
               ? 'Chat de la planta #${widget.plantId}'
